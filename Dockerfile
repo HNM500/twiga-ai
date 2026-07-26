@@ -20,8 +20,12 @@ RUN bun install --frozen-lockfile
 # This stage builds the Next.js application
 FROM base AS builder
 WORKDIR /app
+ARG NEXT_PUBLIC_APP_URL=https://twiga.ai
+ARG NEXT_PUBLIC_SOURCE_URL=https://github.com/HNM500/twiga-ai
 ENV SKIP_ENV_VALIDATION=true
 ENV NODE_OPTIONS="--max-old-space-size=3072"
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_SOURCE_URL=$NEXT_PUBLIC_SOURCE_URL
 # Copy node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 # Copy all source files
