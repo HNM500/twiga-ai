@@ -43,6 +43,7 @@ import { Attachment, ChatMessage, ChatTools, CustomUIDataTypes } from '@/lib/typ
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
 import { cn } from '@/lib/utils';
+import { AnswerFeedback } from '@/components/answer-feedback';
 // Enhanced Error Display Component
 interface EnhancedErrorDisplayProps {
   error: any;
@@ -170,7 +171,7 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
         window.location.href = '/sign-in';
         break;
       case 'upgrade':
-        window.location.href = '/pricing';
+        window.location.href = '/settings?tab=usage';
         break;
       case 'retry':
         if (handleRetry) {
@@ -300,6 +301,7 @@ interface MessageProps {
   shouldReduceHeight?: boolean;
   attachmentsRenderer?: (attachments: Attachment[]) => React.ReactNode;
   onBeforeSubmit?: () => void;
+  chatId?: string;
 }
 
 // Message Editor Component
@@ -843,6 +845,7 @@ export const Message: React.FC<MessageProps> = ({
   shouldReduceHeight = false,
   attachmentsRenderer,
   onBeforeSubmit,
+  chatId,
 }) => {
   // State for expanding/collapsing long user messages
   const [isExpanded, setIsExpanded] = useState(false);
@@ -1023,6 +1026,9 @@ export const Message: React.FC<MessageProps> = ({
   }
 
   if (message.role === 'assistant') {
+    const hasAnswerText = message.parts?.some((part) => part.type === 'text' && part.text.trim().length > 0);
+    const isThisMessageStreaming = isLastMessage && (status === 'submitted' || status === 'streaming');
+
     return (
       <div className={cn(shouldReduceHeight ? '' : 'min-h-[calc(100vh-18rem)]', '')}>
         {message.parts?.map((part: ChatMessage['parts'][number], partIndex: number) => {
@@ -1083,6 +1089,15 @@ export const Message: React.FC<MessageProps> = ({
             handleRetry={handleRetry}
             user={user}
             selectedVisibilityType={selectedVisibilityType}
+          />
+        )}
+
+        {hasAnswerText && !isThisMessageStreaming && !error && !isMissingAssistantResponse && (
+          <AnswerFeedback
+            messageId={message.id}
+            chatId={chatId}
+            requestedSearchMode={message.metadata?.requestedSearchMode}
+            resolvedSearchMode={message.metadata?.resolvedSearchMode}
           />
         )}
 

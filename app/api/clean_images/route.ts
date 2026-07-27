@@ -3,8 +3,10 @@ import { ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { r2Client, R2_BUCKET_NAME } from '@/lib/r2';
+import { TWIGA_FEATURES } from '@/lib/twiga-features';
 
 export async function GET(req: NextRequest) {
+  if (!TWIGA_FEATURES.uploads) return new NextResponse('Not found', { status: 404 });
   if (req.headers.get('Authorization') !== `Bearer ${serverEnv.CRON_SECRET}`) {
     return new NextResponse('Unauthorized', { status: 401 });
   }

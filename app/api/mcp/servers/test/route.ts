@@ -1,9 +1,10 @@
 import { createMCPClient } from '@ai-sdk/mcp';
 import { getCurrentUser } from '@/app/actions';
+import { requireTwigaAppsUser } from '@/lib/mcp/access';
 import { ChatSDKError } from '@/lib/errors';
 import { getUserMcpServerById, updateUserMcpServer } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
-import { validateMcpServerUrl } from '@/lib/mcp/server-config';
+import { validateResolvedMcpServerUrl, validateMcpServerUrl } from '@/lib/mcp/server-config';
 import { z } from 'zod';
 
 const testMcpServerSchema = z.object({
@@ -19,12 +20,6 @@ const testMcpServerSchema = z.object({
   (value) => Boolean(value.serverId) || (Boolean(value.transportType) && Boolean(value.url)),
   'Provide serverId or transportType/url',
 );
-
-function assertProUser(user: Awaited<ReturnType<typeof getCurrentUser>>) {
-  if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
-  if (!user.isProUser) throw new ChatSDKError('upgrade_required:auth', 'Pro subscription required');
-  return user;
-}
 
 function normalizeMcpTestErrorMessage(
   message: string,
@@ -53,7 +48,7 @@ export async function POST(request: Request) {
   let errorContext: { transportType?: 'http' | 'sse'; url?: string } | undefined;
 
   try {
-    const user = assertProUser(await getCurrentUser());
+    const user = await requireTwigaAppsUser();
     userIdForUpdate = user.id;
     const input = testMcpServerSchema.parse(await request.json());
 
@@ -93,6 +88,7 @@ export async function POST(request: Request) {
       })();
 
     validateMcpServerUrl(serverConfig.url);
+    await validateResolvedMcpServerUrl(serverConfig.url);
     errorContext = {
       transportType: serverConfig.transportType,
       url: serverConfig.url,

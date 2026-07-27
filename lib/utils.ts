@@ -21,6 +21,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { AgentNetworkIcon } from '@/components/icons/agent-network-icon';
 import { AppsIcon } from '@/components/icons/apps-icon';
+import { TWIGA_FEATURES } from '@/lib/twiga-features';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -39,6 +40,7 @@ export function normalizeError(err: unknown): string {
 }
 
 export type SearchGroupId =
+  | 'auto'
   | 'web'
   | 'x'
   | 'academic'
@@ -67,7 +69,13 @@ export const searchProviderInfo = {
 
 export type SearchProvider = keyof typeof searchProviderInfo;
 
-const TWIGA_ENABLED_MODES = new Set<SearchGroupId>(['web', 'chat']);
+const TWIGA_ENABLED_MODES = new Set<SearchGroupId>([
+  'auto',
+  'web',
+  'chat',
+  ...(TWIGA_FEATURES.apps ? (['mcp'] as const) : []),
+  ...(TWIGA_FEATURES.youtube ? (['youtube'] as const) : []),
+]);
 
 // Function to get dynamic web search description based on selected provider
 export function getWebSearchDescription(provider: SearchProvider = 'exa'): string {
@@ -79,16 +87,23 @@ export function getWebSearchDescription(provider: SearchProvider = 'exa'): strin
 export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
   return [
     {
+      id: 'auto' as const,
+      name: 'Twiga decides',
+      description: 'Automatically search when fresh or verified information is needed',
+      icon: AtomicPowerIcon,
+      show: TWIGA_ENABLED_MODES.has('auto'),
+    },
+    {
       id: 'web' as const,
-      name: 'Web',
-      description: getWebSearchDescription(searchProvider),
+      name: 'Search the web',
+      description: 'Find current information with cited sources',
       icon: GlobalSearchIcon,
       show: TWIGA_ENABLED_MODES.has('web'),
     },
     {
       id: 'chat' as const,
-      name: 'Chat',
-      description: 'Talk to the model directly.',
+      name: 'Chat without web',
+      description: 'Force a direct answer without searching the web',
       icon: ChattingIcon,
       show: TWIGA_ENABLED_MODES.has('chat'),
     },
@@ -122,7 +137,6 @@ export function getSearchGroups(searchProvider: SearchProvider = 'exa') {
       icon: AppsIcon,
       show: TWIGA_ENABLED_MODES.has('mcp'),
       requireAuth: true,
-      requirePro: true,
     },
     {
       id: 'multi-agent' as const,

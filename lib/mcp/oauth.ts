@@ -3,7 +3,12 @@ import 'server-only';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import type { UserMcpServer } from '@/lib/db/schema';
 import { updateUserMcpServer } from '@/lib/db/queries';
-import { decryptOAuthValue, getEncryptedOAuthValue, validateMcpServerUrl } from '@/lib/mcp/server-config';
+import {
+  decryptOAuthValue,
+  getEncryptedOAuthValue,
+  validateMcpServerUrl,
+  validateResolvedMcpServerUrl,
+} from '@/lib/mcp/server-config';
 
 interface OAuthEndpointConfig {
   authorizationUrl: string;
@@ -256,10 +261,12 @@ function getAuthorizationServerMetadataUrls(issuerUrl: string) {
 }
 
 async function fetchJson<T>(url: string) {
+  await validateResolvedMcpServerUrl(url);
   const response = await fetch(url, {
     method: 'GET',
     headers: { Accept: 'application/json' },
     cache: 'no-store',
+    redirect: 'error',
   });
   if (!response.ok) return null;
   const text = await response.text();
@@ -267,10 +274,12 @@ async function fetchJson<T>(url: string) {
 }
 
 async function discoverProtectedResourceMetadata(serverUrl: string) {
+  await validateResolvedMcpServerUrl(serverUrl);
   const challengeResponse = await fetch(serverUrl, {
     method: 'GET',
     headers: { Accept: 'application/json' },
     cache: 'no-store',
+    redirect: 'error',
   }).catch(() => null);
 
   const bearerChallenge = parseBearerChallenge(challengeResponse?.headers.get('www-authenticate') ?? null);
@@ -338,6 +347,7 @@ async function discoverAuthorizationServerMetadata(issuerUrl: string) {
 }
 
 async function postTokenRequest(tokenUrl: string, body: URLSearchParams) {
+  await validateResolvedMcpServerUrl(tokenUrl);
   const response = await fetch(tokenUrl, {
     method: 'POST',
     headers: {
@@ -346,6 +356,7 @@ async function postTokenRequest(tokenUrl: string, body: URLSearchParams) {
     },
     body,
     cache: 'no-store',
+    redirect: 'error',
   });
 
   const text = await response.text();
@@ -407,6 +418,7 @@ async function registerDynamicOAuthClient({
   requestOrigin: string;
 }) {
   validateMcpServerUrl(registrationUrl);
+  await validateResolvedMcpServerUrl(registrationUrl);
   const origin = getTrustedAppOrigin(requestOrigin);
   const redirectUri = getOAuthCallbackUri(origin);
   const response = await fetch(registrationUrl, {
@@ -424,6 +436,7 @@ async function registerDynamicOAuthClient({
       token_endpoint_auth_method: 'none',
     }),
     cache: 'no-store',
+    redirect: 'error',
   });
 
   const text = await response.text();

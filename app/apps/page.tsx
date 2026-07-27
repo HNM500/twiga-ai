@@ -34,6 +34,7 @@ import { parseAsString, useQueryState } from 'nuqs';
 import { getMcpCatalogIcon, MCP_COMPONENT_ICON_URLS } from '@/lib/mcp/catalog-icons';
 import { Github01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
+import { TWIGA_FEATURES } from '@/lib/twiga-features';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -91,21 +92,6 @@ const CATEGORIES: { id: CategoryId; label: string }[] = [
 const CATALOG: CatalogItem[] = [
   { name: 'Asana', category: 'productivity', url: 'https://mcp.asana.com/sse', auth: 'oauth', maintainer: 'Asana', maintainerUrl: 'https://asana.com' },
   { name: 'Autosend', category: 'email', url: 'https://mcp.autosend.com/', auth: 'oauth', maintainer: 'Autosend', maintainerUrl: 'https://autosend.com' },
-  {
-    name: 'Google Workspace', category: 'productivity', url: 'https://google-mcp.scira.app/mcp', auth: 'apikey', maintainer: 'Google', maintainerUrl: 'https://google.com',
-    fields: [{
-      label: 'API Key', placeholder: 'gmc_…', headerName: 'Authorization',
-      hintText: 'Get API key', hintUrl: 'https://google-mcp.scira.app',
-      steps: [
-        { text: 'Go to the Google MCP dashboard and sign in with Google', url: 'https://google-mcp.scira.app', urlLabel: 'Open dashboard' },
-        { text: 'Google may show an "unverified app" warning during development — click Advanced → Go to Twiga AI (unsafe) to continue.' },
-        { text: 'Select all services you want: Google Calendar, Google Sheets, Gmail, Google Docs, Google Drive' },
-        { text: 'Set API key expiration to Never (recommended)' },
-        { text: 'Copy the generated API key (starts with gmc_) and paste it above' },
-        { text: 'To Revoke or Manage the API Key, go to https://google-mcp.scira.app/revoke and paste the API key and click "Revoke".' },
-      ],
-    }],
-  },
   { name: 'Atlassian', category: 'dev', url: 'https://mcp.atlassian.com/v1/sse', auth: 'oauth', maintainer: 'Atlassian', maintainerUrl: 'https://atlassian.com' },
   { name: 'Attio', category: 'crm', url: 'https://mcp.attio.com/mcp', auth: 'oauth', maintainer: 'Attio', maintainerUrl: 'https://attio.com' },
   { name: 'Box', category: 'productivity', url: 'https://mcp.box.com', auth: 'oauth', maintainer: 'Box', maintainerUrl: 'https://box.com' },
@@ -381,11 +367,11 @@ function CardSkeleton() {
 // ─── Page content ─────────────────────────────────────────────────────────────
 
 function McpMarketplaceContent() {
-  const { user, isProUser, isLoading: isAuthLoading } = useUser();
+  const { user, isLoading: isAuthLoading } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const mcpEnabled = process.env.NEXT_PUBLIC_MCP_ENABLED === 'true';
+  const mcpEnabled = TWIGA_FEATURES.apps;
 
   useEffect(() => {
     if (!mcpEnabled) { router.replace('/'); return; }
@@ -412,7 +398,6 @@ function McpMarketplaceContent() {
   const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') === 'my-servers' ? 'my-servers' : 'browse');
   const [search, setSearch] = useQueryState('q', parseAsString.withDefault(''));
   const [category, setCategory] = useState<CategoryId>('all');
-  const isReadOnlyMarketplace = !isProUser;
 
   const [apiKeyTarget, setApiKeyTarget] = useState<CatalogItem | null>(null);
   const [apiKeyValues, setApiKeyValues] = useState<Record<string, string>>({});
@@ -451,7 +436,7 @@ function McpMarketplaceContent() {
       if (!r.ok) return { servers: [] as ServerRecord[] };
       return r.json() as Promise<{ servers: ServerRecord[] }>;
     },
-    enabled: Boolean(user?.id && isProUser),
+    enabled: Boolean(user?.id),
     staleTime: 10_000,
   });
 
@@ -724,7 +709,6 @@ function McpMarketplaceContent() {
   });
 
   const handleAdd = (item: CatalogItem) => {
-    if (!isProUser) { router.push('/pricing'); return; }
     if (item.auth === 'apikey') { setApiKeyTarget(item); setApiKeyValues({}); return; }
     if (item.auth === 'oauth' && item.oauthSetup?.length) { setOauthSetupTarget(item); setOauthSetupValues({}); return; }
     setAddingUrl(item.url);
@@ -732,15 +716,8 @@ function McpMarketplaceContent() {
   };
 
   const handleCustomOpen = () => {
-    if (!isProUser) { router.push('/pricing'); return; }
     setShowCustomDialog(true);
   };
-
-  useEffect(() => {
-    if (isReadOnlyMarketplace && activeTab !== 'browse') {
-      setActiveTab('browse');
-    }
-  }, [isReadOnlyMarketplace, activeTab]);
 
   if (!mcpEnabled) return null;
 
@@ -772,7 +749,7 @@ function McpMarketplaceContent() {
                 <SidebarTrigger />
               </div>
               <AppsIcon width={24} height={24} className="text-foreground" />
-              <h1 className="text-2xl font-light tracking-tight font-be-vietnam-pro">scira apps</h1>
+              <h1 className="text-2xl font-light tracking-tight font-be-vietnam-pro">Twiga Apps</h1>
             </div>
 
             {/* Tabs + search (desktop: side by side, mobile: stacked) */}
@@ -782,9 +759,7 @@ function McpMarketplaceContent() {
                 value={activeTab}
                 onValueChange={setActiveTab}
                 className="w-full sm:w-auto **:[[role=tablist]]:w-full sm:**:[[role=tablist]]:w-auto **:[[role=tab]]:flex-1 **:[[role=tab]]:justify-center sm:**:[[role=tab]]:flex-none sm:**:[[role=tab]]:justify-start [--color-kumo-tint:var(--accent)] [--color-kumo-base:var(--background)] [--color-kumo-recessed:var(--muted)] [--color-kumo-surface:var(--card)] [--text-color-kumo-default:var(--foreground)] [--text-color-kumo-strong:var(--muted-foreground)] [--text-color-kumo-subtle:var(--muted-foreground)] [--color-kumo-ring:var(--border)]"
-                tabs={isReadOnlyMarketplace ? [
-                  { value: 'browse', label: 'Marketplace' },
-                ] : [
+                tabs={[
                   { value: 'browse', label: 'Marketplace' },
                   { value: 'my-servers', label: `My Apps${connectedUrls.size > 0 ? ` (${connectedUrls.size})` : ''}` },
                 ]}
@@ -801,17 +776,6 @@ function McpMarketplaceContent() {
                 </div>
               )}
             </div>
-
-            {isReadOnlyMarketplace && (
-              <div className="rounded-xl border border-border/50 bg-card/30 px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <p className="text-xs text-muted-foreground">
-                  Browse all apps for free. Upgrade to connect and run app tools in chat.
-                </p>
-                <Button size="sm" className="h-7 w-fit" onClick={() => router.push('/pricing')}>
-                  Upgrade to Pro
-                </Button>
-              </div>
-            )}
 
             {/* Category pills — browse only */}
             {activeTab === 'browse' && (
@@ -855,7 +819,7 @@ function McpMarketplaceContent() {
                         isConnected={connectedUrls.has(item.url.replace(/\/$/, ''))}
                         isAdding={addingUrl === item.url && addMutation.isPending}
                         onAdd={handleAdd}
-                        canConnect={!isReadOnlyMarketplace}
+                        canConnect
                       />
                     ))}
                   </div>
@@ -900,7 +864,7 @@ function McpMarketplaceContent() {
                         isConnected={connectedUrls.has(item.url.replace(/\/$/, ''))}
                         isAdding={addingUrl === item.url && addMutation.isPending}
                         onAdd={handleAdd}
-                        canConnect={!isReadOnlyMarketplace}
+                        canConnect
                       />
                     ))}
                   </div>

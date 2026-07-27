@@ -1,6 +1,11 @@
 import { PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { NextRequest, NextResponse } from 'next/server';
+import { TWIGA_FEATURES } from '@/lib/twiga-features';
+
+function uploadsUnavailable() {
+  return NextResponse.json({ error: 'Uploads are not enabled in the Twiga MVP' }, { status: 404 });
+}
 import { z } from 'zod';
 import { nanoid } from 'nanoid';
 import { and, eq, sql } from 'drizzle-orm';
@@ -118,6 +123,7 @@ type DbFileRow = {
 };
 
 export async function GET(request: NextRequest) {
+  if (!TWIGA_FEATURES.uploads) return uploadsUnavailable();
   let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
   try {
     session = await auth.api.getSession({ headers: request.headers });
@@ -291,6 +297,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!TWIGA_FEATURES.uploads) return uploadsUnavailable();
   // Check for authentication but don't require it
   let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
   try {
@@ -364,6 +371,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  if (!TWIGA_FEATURES.uploads) return uploadsUnavailable();
   let session: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
   try {
     session = await auth.api.getSession({ headers: request.headers });

@@ -5,7 +5,7 @@ function SignInContent() {
   return (
     <AuthCard
       title="Welcome back"
-      description="Sign in to access your research history and continue where you left off."
+      description="Sign in to save conversations, preferences and connected Twiga Apps."
       mode="sign-in"
     />
   );

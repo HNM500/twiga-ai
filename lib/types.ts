@@ -25,7 +25,6 @@ import type {
   greetingTool,
   movieTvSearchTool,
   trendingTvTool,
-  createConnectorsSearchTool,
   createMemoryTools,
   SearchMemoryTool,
   AddMemoryTool,
@@ -33,7 +32,6 @@ import type {
   createFileQuerySearchTool,
   spotifySearchTool,
   predictionSearchTool,
-  createBuildTools,
 } from '@/lib/tools';
 
 import type { InferUITool, UIMessage } from 'ai';
@@ -153,6 +151,9 @@ export const messageMetadataSchema = z.object({
   inputTokens: z.number().nullable(),
   outputTokens: z.number().nullable(),
   totalTokens: z.number().nullable(),
+  requestedSearchMode: z.enum(['auto', 'web', 'chat', 'mcp', 'youtube']).optional(),
+  resolvedSearchMode: z.enum(['web', 'chat', 'mcp', 'youtube']).optional(),
+  searchModeReason: z.string().optional(),
 });
 
 export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
@@ -181,24 +182,12 @@ type trendingTvTool = InferUITool<typeof trendingTvTool>;
 type youtubeSearchTool = InferUITool<typeof youtubeSearchTool>;
 type coinDataByContractTool = InferUITool<typeof coinDataByContractTool>;
 type datetimeTool = InferUITool<typeof datetimeTool>;
-type createConnectorsSearchTool = InferUITool<ReturnType<typeof createConnectorsSearchTool>>;
 type createMemoryTools = InferUITool<SearchMemoryTool>;
 type addMemoryTools = InferUITool<AddMemoryTool>;
 type codeContextTool = InferUITool<typeof codeContextTool>;
 type fileQuerySearchTool = InferUITool<ReturnType<typeof createFileQuerySearchTool>>;
 type spotifySearchTool = InferUITool<typeof spotifySearchTool>;
 type predictionSearchTool = InferUITool<ReturnType<typeof predictionSearchTool>>;
-
-type BuildTools = ReturnType<typeof createBuildTools> extends { tools: infer T } ? T : never;
-type boxInitTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxExecTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxWriteTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxReadTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxListFilesTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxDownloadTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxAgentTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxCodeTool = InferUITool<BuildTools[keyof BuildTools]>;
-type boxBrowsePageTool = InferUITool<BuildTools[keyof BuildTools]>;
 
 // type mcpSearchTool = InferUITool<typeof mcpSearchTool>;
 
@@ -241,24 +230,12 @@ export type ChatTools = {
   extreme_search: extremeSearchTool;
   greeting: greetingTool;
 
-  connectors_search: createConnectorsSearchTool;
   search_memories: createMemoryTools;
   add_memory: addMemoryTools;
 
   code_context: codeContextTool;
   file_query_search: fileQuerySearchTool;
 
-  // Build Mode Tools
-  box_init: boxInitTool;
-  box_exec: boxExecTool;
-  box_write: boxWriteTool;
-  box_read: boxReadTool;
-  box_list_files: boxListFilesTool;
-  box_download: boxDownloadTool;
-  box_agent: boxAgentTool;
-  box_code: boxCodeTool;
-  box_browse_page: boxBrowsePageTool;
-  build_web_search: boxExecTool;
 };
 
 export type AgentStreamEvent =
@@ -413,6 +390,14 @@ export type CustomUIDataTypes = {
     imagesCount: number;
   };
   auto_routed_model: { model: string; route: string };
+  generation_metrics: {
+    completionTime: number;
+    inputTokens: number | null;
+    outputTokens: number | null;
+    totalTokens: number | null;
+    costUsd: number | null;
+    resolvedSearchMode: 'web' | 'chat' | 'mcp' | 'youtube';
+  };
   extreme_search: DataExtremeSearchPart['data'];
   prediction_results: DataPredictionResultsPart['data'];
   chat_title: { title: string };

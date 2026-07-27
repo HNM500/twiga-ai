@@ -98,7 +98,7 @@ export const chat = pgTable(
       .$defaultFn(() => uuidv7()),
     userId: text('userId')
       .notNull()
-      .references(() => user.id),
+      .references(() => user.id, { onDelete: 'cascade' }),
     title: text('title').notNull().default('New Chat'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -137,6 +137,28 @@ export const message = pgTable(
   (table) => [
     index('message_chatId_idx').on(table.chatId),
     index('message_chatId_createdAt_idx').on(table.chatId, table.createdAt),
+  ],
+);
+
+export const answerFeedback = pgTable(
+  'answer_feedback',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    messageId: text('message_id').notNull(),
+    chatId: text('chat_id'),
+    userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    kind: varchar('kind', { enum: ['helpful', 'unhelpful', 'report'] }).notNull(),
+    reasons: jsonb('reasons').$type<string[]>().notNull().default([]),
+    comment: text('comment'),
+    requestedSearchMode: text('requested_search_mode'),
+    resolvedSearchMode: text('resolved_search_mode'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('answerFeedback_messageId_idx').on(table.messageId),
+    index('answerFeedback_userId_createdAt_idx').on(table.userId, table.createdAt),
   ],
 );
 
@@ -549,6 +571,7 @@ export const userRelations = relations(user, ({ many }) => ({
   dodoSubscriptions: many(dodosubscription),
   lookouts: many(lookout),
   mcpServers: many(userMcpServer),
+  answerFeedback: many(answerFeedback),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -578,6 +601,13 @@ export const messageRelations = relations(message, ({ one }) => ({
   chat: one(chat, {
     fields: [message.chatId],
     references: [chat.id],
+  }),
+}));
+
+export const answerFeedbackRelations = relations(answerFeedback, ({ one }) => ({
+  user: one(user, {
+    fields: [answerFeedback.userId],
+    references: [user.id],
   }),
 }));
 
@@ -650,6 +680,7 @@ export type Account = InferSelectModel<typeof account>;
 export type Verification = InferSelectModel<typeof verification>;
 export type Chat = InferSelectModel<typeof chat>;
 export type Message = InferSelectModel<typeof message>;
+export type AnswerFeedback = InferSelectModel<typeof answerFeedback>;
 export type Stream = InferSelectModel<typeof stream>;
 export type Subscription = InferSelectModel<typeof subscription>;
 export type Payment = InferSelectModel<typeof payment>;

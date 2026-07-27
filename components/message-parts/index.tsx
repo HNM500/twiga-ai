@@ -25,7 +25,6 @@ import {
   CustomUIDataTypes,
   DataQueryCompletionPart,
   DataExtremeSearchPart,
-  DataBuildSearchPart,
 } from '@/lib/types';
 
 type SourceUIPart = {
@@ -69,15 +68,6 @@ type XaiMultiAgentToolPart = {
   output?: unknown;
   errorText?: string;
 };
-import {
-  BoxExecResult,
-  BoxWriteResult,
-  BoxReadResult,
-  BoxListResult,
-  BoxDownloadResult,
-  BoxAgentResult,
-  BoxCodeResult,
-} from '@/components/build-search';
 import { SPEC_DATA_PART_TYPE } from '@json-render/core';
 import { useJsonRenderMessage } from '@json-render/react';
 import { CanvasRendererView } from '@/components/canvas-renderer';
@@ -209,7 +199,6 @@ import { CoinData as CryptoCoinsData } from '@/components/crypto-coin-data';
 import { CurrencyConverter } from '@/components/currency_conv';
 import { YouTubeSearchResults } from '@/components/youtube-search-results';
 import { SpotifySearchResults } from '@/components/spotify-search-results';
-import { ConnectorsSearchResults } from '@/components/connectors-search-results';
 import { CodeInterpreterView, NearbySearchSkeleton } from '@/components/tool-invocation-list-view';
 import { RetrieveResults } from '@/components/retrieve-results';
 import FileQuerySearch from '@/components/file-query-search';
@@ -2956,7 +2945,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = `scira-export-${message.id || Date.now()}.pdf`;
+                            a.download = `twiga-export-${message.id || Date.now()}.pdf`;
                             document.body.appendChild(a);
                             a.click();
                             a.remove();
@@ -3019,7 +3008,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = `scira-export-${message.id || Date.now()}.docx`;
+                            a.download = `twiga-export-${message.id || Date.now()}.docx`;
                             document.body.appendChild(a);
                             a.click();
                             a.remove();
@@ -3094,7 +3083,7 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                             const url = URL.createObjectURL(blob);
                             const a = document.createElement('a');
                             a.href = url;
-                            a.download = `scira-export-${message.id || Date.now()}.md`;
+                            a.download = `twiga-export-${message.id || Date.now()}.md`;
                             document.body.appendChild(a);
                             a.click();
                             a.remove();
@@ -4703,31 +4692,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
             }
             break;
 
-          case 'tool-connectors_search':
-            switch (part.state) {
-              case 'input-streaming':
-              case 'input-available':
-                return (
-                  <ConnectorsSearchResults
-                    key={`${messageIndex}-${partIndex}-tool`}
-                    results={[]}
-                    query={part.input?.query || ''}
-                    totalResults={0}
-                    isLoading={true}
-                  />
-                );
-              case 'output-available':
-                return (
-                  <ConnectorsSearchResults
-                    key={`${messageIndex}-${partIndex}-tool`}
-                    results={part.output?.success ? part.output.results : []}
-                    query={part.output?.success ? part.output.query : ''}
-                    totalResults={part.output?.success ? part.output.count : 0}
-                  />
-                );
-            }
-            break;
-
           case 'tool-nearby_places_search':
             switch (part.state) {
               case 'input-streaming':
@@ -5034,128 +4998,6 @@ export const MessagePartRenderer = memo<MessagePartRendererProps>(
                 );
             }
             break;
-          case 'tool-box_exec': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const execAnns = buildAnnotations.filter((a) => a.data.kind === 'exec');
-            const latestAnn = execAnns[execAnns.length - 1]?.data;
-            return (
-              <BoxExecResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={part.state}
-                annotation={latestAnn}
-              />
-            );
-          }
-
-          case 'tool-box_write': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const writeAnns = buildAnnotations.filter((a) => a.data.kind === 'write');
-            const latestAnn = writeAnns[writeAnns.length - 1]?.data;
-            return (
-              <BoxWriteResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={part.state}
-                annotation={latestAnn}
-              />
-            );
-          }
-
-          case 'tool-box_read': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const readAnns = buildAnnotations.filter((a) => a.data.kind === 'read');
-            const latestAnn = readAnns[readAnns.length - 1]?.data;
-            return (
-              <BoxReadResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={part.state}
-                annotation={latestAnn}
-              />
-            );
-          }
-
-          case 'tool-box_list_files': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const listAnns = buildAnnotations.filter((a) => a.data.kind === 'list');
-            const latestAnn = listAnns[listAnns.length - 1]?.data;
-            return (
-              <BoxListResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={part.state}
-                annotation={latestAnn}
-              />
-            );
-          }
-
-          case 'tool-box_download': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const dlAnns = buildAnnotations.filter((a) => a.data.kind === 'download');
-            const latestAnn = dlAnns[dlAnns.length - 1]?.data;
-            return (
-              <BoxDownloadResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={part.state}
-                annotation={latestAnn}
-              />
-            );
-          }
-
-          case 'tool-box_agent': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const agentAnns = buildAnnotations.filter((a) => a.data.kind === 'agent');
-            return (
-              <BoxAgentResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={part.state}
-                annotations={agentAnns}
-              />
-            );
-          }
-
-          case 'tool-box_code': {
-            const buildAnnotations =
-              (annotations?.filter((a) => a.type === 'data-build_search') as DataBuildSearchPart[]) || [];
-            const codeAnns = buildAnnotations.filter((a) => a.data.kind === 'code');
-            const latestAnn = codeAnns[codeAnns.length - 1]?.data;
-            return (
-              <BoxCodeResult
-                key={`${messageIndex}-${partIndex}-tool`}
-                input={part.input}
-                result={part.output}
-                state={part.state}
-                annotation={latestAnn}
-              />
-            );
-          }
-
-          case 'tool-box_browse_page': {
-            return (
-              <SearchLoadingState
-                key={`${messageIndex}-${partIndex}-tool`}
-                icon={Globe}
-                text={part.state === 'output-available' ? 'Browsed pages' : 'Browsing pages...'}
-                color="blue"
-              />
-            );
-          }
-
           default:
             return <DynamicToolInvocationCard part={part} compact={true} />;
         }

@@ -6,9 +6,7 @@ import {
   CheckIcon,
   GlobeIcon,
   LockIcon,
-  LinkedinLogoIcon,
   XLogoIcon,
-  RedditLogoIcon,
 } from '@phosphor-icons/react';
 import { Copy } from 'lucide-react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
@@ -126,33 +124,9 @@ export function ShareDialog({
     }
   };
 
-  const handleShareLinkedIn = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
-    window.open(linkedInUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleShareTwitter = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const twitterUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`;
-    window.open(twitterUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleShareReddit = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const redditUrl = `https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}`;
-    window.open(redditUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleNativeShare = async () => {
-    try {
-      await navigator.share({
-        title: 'Shared Twiga AI Chat',
-        url: shareUrl,
-      });
-    } catch (error) {
-      await handleCopyLink();
-    }
+  const handleShareWhatsApp = () => {
+    const text = `Shared from Twiga AI: ${shareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
   if (!chatId || !user || !isOwner) {
@@ -240,6 +214,10 @@ export function ShareDialog({
                   {copied ? 'Copied' : 'Copy link'}
                 </Button>
               </div>
+              <Button type="button" variant="outline" className="w-full" onClick={handleShareWhatsApp}>
+                <HugeiconsIcon icon={Share03Icon} size={16} className="mr-2" />
+                Share on WhatsApp
+              </Button>
             </div>
           ) : (
             <div className="space-y-4">
@@ -284,7 +262,7 @@ export function ShareDialog({
                 Don&apos;t share personal information or third-party content without permission, and see our
                 <span className="px-0.5" />
                 <a className="underline" href="/privacy-policy" target="_blank" rel="noreferrer">
-                  Usage Policy
+                  Privacy Policy
                 </a>
                 .
               </p>

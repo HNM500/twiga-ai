@@ -7,7 +7,11 @@ const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
 
 function getEncryptionKey() {
-  return createHash('sha256').update(serverEnv.MCP_CREDENTIALS_ENCRYPTION_KEY, 'utf8').digest();
+  const secret = serverEnv.MCP_CREDENTIALS_ENCRYPTION_KEY?.trim();
+  if (!secret || secret.length < 32) {
+    throw new Error('MCP_CREDENTIALS_ENCRYPTION_KEY must be set to at least 32 characters');
+  }
+  return createHash('sha256').update(secret, 'utf8').digest();
 }
 
 export function encryptMcpCredentials(value: string) {

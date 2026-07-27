@@ -16,7 +16,8 @@ import {
   InferUIMessageChunk,
   AsyncIterableStream,
 } from 'ai';
-import { pipeJsonRender } from '@json-render/core';
+import { ACCOUNT_DAILY_MESSAGE_LIMIT } from '@/lib/constants';
+import { TWIGA_FEATURES } from '@/lib/twiga-features';
 import {
   scira,
   requiresAuthentication,
@@ -55,6 +56,7 @@ import { ChatMessage } from '@/lib/types';
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { getGroupConfig } from '@/lib/search/group-config';
+import { getLatestUserText, routeCompanionRequest } from '@/lib/search/companion-router';
 import {
   getCurrentUser,
   getLightweightUser,
@@ -174,7 +176,11 @@ function initializeChatAndChecks({
         const shouldBypassLimits = shouldBypassRateLimits(model, lightweightUser);
         const isAnthropicModel = getModelProvider(model) === 'anthropic';
         const isMaxGoogleModel = getModelProvider(model) === 'google' && lightweightUser.isMaxUser;
-        if (!shouldBypassLimits && messageCountResult.count !== undefined && messageCountResult.count >= 100) {
+        if (
+          !shouldBypassLimits &&
+          messageCountResult.count !== undefined &&
+          messageCountResult.count >= ACCOUNT_DAILY_MESSAGE_LIMIT
+        ) {
           throw new ChatSDKError('rate_limit:chat', 'Daily search limit reached');
         }
         if (
@@ -274,7 +280,11 @@ function initializeChatAndChecks({
       const shouldBypassLimits = shouldBypassRateLimits(model, lightweightUser);
       const isAnthropicModel = getModelProvider(model) === 'anthropic';
       const isMaxGoogleModel = getModelProvider(model) === 'google' && lightweightUser.isMaxUser;
-      if (!shouldBypassLimits && messageCountResult.count !== undefined && messageCountResult.count >= 100) {
+      if (
+        !shouldBypassLimits &&
+        messageCountResult.count !== undefined &&
+        messageCountResult.count >= ACCOUNT_DAILY_MESSAGE_LIMIT
+      ) {
         throw new ChatSDKError('rate_limit:chat', 'Daily search limit reached');
       }
       if (
@@ -397,14 +407,13 @@ export async function POST(req: Request) {
   const {
     messages: requestMessages,
     model: requestedModel,
-    group,
+    group: requestedGroup,
     timezone,
     id,
     selectedVisibilityType,
     isCustomInstructionsEnabled,
     searchProvider,
     extremeSearchModel,
-    selectedConnectors,
     isTemporaryChat,
     isAutoRouted,
     autoRouterEnabled,
@@ -412,9 +421,21 @@ export async function POST(req: Request) {
   } = await req.json();
   recordTiming('parse_request_body', opStart);
 
-  if (group !== 'web' && group !== 'chat') {
+  const enabledGroups = new Set(['auto', 'web', 'chat']);
+  if (TWIGA_FEATURES.apps) enabledGroups.add('mcp');
+  if (TWIGA_FEATURES.youtube) enabledGroups.add('youtube');
+  if (!enabledGroups.has(requestedGroup)) {
     return new ChatSDKError('bad_request:api', 'This search mode is not enabled in the Twiga MVP').toResponse();
   }
+
+  const companionRoute =
+    requestedGroup === 'auto'
+      ? routeCompanionRequest(getLatestUserText(requestMessages))
+      : {
+          mode: requestedGroup as 'web' | 'chat' | 'mcp' | 'youtube',
+          reason: 'manual-override',
+        };
+  const group = companionRoute.mode;
 
   if (typeof requestedModel !== 'string' || requestedModel.length === 0) {
     return new ChatSDKError('bad_request:api', 'A model is required').toResponse();
@@ -446,6 +467,8 @@ export async function POST(req: Request) {
     model,
     requestedModel,
     group,
+    requestedGroup,
+    searchModeReason: companionRoute.reason,
     latitude,
     longitude,
     isAutoRouted,
@@ -475,7 +498,7 @@ export async function POST(req: Request) {
   // Start full user fetch immediately (doesn't block early exits)
   const isProUser = lightweightUser?.isProUser ?? false;
   const isMaxUser = lightweightUser?.isMaxUser ?? false;
-  const shouldUseXaiMultiAgent = group === 'multi-agent' && isProUser;
+  const shouldUseXaiMultiAgent = false;
   opStart = Date.now();
   const fullUserPromise = lightweightUser ? getCurrentUser() : Promise.resolve(null);
   recordTiming('create_full_user_promise', opStart);
@@ -504,9 +527,6 @@ export async function POST(req: Request) {
     if (requiresAuthentication(model)) {
       return new ChatSDKError('unauthorized:model', `${model} requires authentication`).toResponse();
     }
-    if (group === 'extreme') {
-      return new ChatSDKError('unauthorized:auth', 'Authentication required to use Extreme Search mode').toResponse();
-    }
     if (group === 'mcp') {
       return new ChatSDKError('unauthorized:auth', 'Authentication required to use MCP mode').toResponse();
     }
@@ -517,9 +537,6 @@ export async function POST(req: Request) {
     }
     if (requiresProSubscription(model) && !lightweightUser.isProUser && !lightweightUser.isMaxUser) {
       return new ChatSDKError('upgrade_required:model', `${model} requires a Pro subscription`).toResponse();
-    }
-    if (group === 'mcp' && !lightweightUser.isProUser && !lightweightUser.isMaxUser) {
-      return new ChatSDKError('upgrade_required:auth', 'MCP mode requires a Pro subscription').toResponse();
     }
   }
 
@@ -808,6 +825,7 @@ export async function POST(req: Request) {
     outputTokens: null,
     totalTokens: null,
   };
+  let finalCostUsd: number | null = null;
 
   const stream = createUIMessageStream<ChatMessage>({
     execute: async ({ writer: dataStream }) => {
@@ -823,7 +841,7 @@ export async function POST(req: Request) {
         });
       };
 
-      const shouldLoadMcpTools = Boolean(lightweightUser?.isProUser && (group === 'mcp' || group === 'extreme'));
+      const shouldLoadMcpTools = Boolean(TWIGA_FEATURES.apps && lightweightUser && group === 'mcp');
 
       if (shouldLoadMcpTools && lightweightUser) {
         const { resolveUserMcpTools } = await import('@/lib/tools/mcp-client');
@@ -842,7 +860,7 @@ export async function POST(req: Request) {
       const dynamicMcpToolNames = Object.keys(mcpDynamicTools);
       const configuredActiveTools = [
         ...activeTools,
-        ...(group === 'mcp' || group === 'extreme' ? dynamicMcpToolNames : []),
+        ...(group === 'mcp' ? dynamicMcpToolNames : []),
       ];
       const streamActiveTools =
         model === 'scira-qwen-coder-plus' || model === 'scira-qwen-3-vl' || model === 'scira-qwen-3-vl-thinking'
@@ -855,10 +873,9 @@ export async function POST(req: Request) {
         timezone,
         contextFiles,
         extremeSearchModel,
-        includeMcpTools: group === 'extreme' || group === 'mcp',
+        includeMcpTools: group === 'mcp',
         mcpDynamicTools,
         lightweightUser,
-        selectedConnectors,
       });
 
       const streamTools = shouldUseXaiMultiAgent
@@ -1541,6 +1558,7 @@ export async function POST(req: Request) {
         onAbort(event) {
           const processingTime = (Date.now() - streamStartTime) / 1000;
           setUsageMetadataFromSteps(event.steps, processingTime);
+          finalCostUsd = getOpenRouterCostUsd(event.steps);
           logOperationalEvent('ai_generation_aborted', {
             requestId: streamId,
             mode: group,
@@ -1557,6 +1575,7 @@ export async function POST(req: Request) {
           // console.log('Finish event: ', event);
           const processingTime = (Date.now() - streamStartTime) / 1000;
           setUsageMetadataFromUsage(event.totalUsage, processingTime);
+          finalCostUsd = getOpenRouterCostUsd(event.steps);
           console.log(`✅ Request completed: ${processingTime.toFixed(2)}s (${event.finishReason})`);
           logOperationalEvent('ai_generation_completed', {
             requestId: streamId,
@@ -1578,11 +1597,7 @@ export async function POST(req: Request) {
               // Track usage synchronously - this is critical for billing and rate limiting
               try {
                 const shouldTrackMessageUsage = !shouldBypassRateLimits(model, lightweightUser);
-                const shouldTrackExtremeSearchUsage =
-                  group === 'extreme' &&
-                  event.steps?.some((step) =>
-                    step.toolCalls?.some((toolCall) => toolCall && toolCall.toolName === 'extreme_search'),
-                  );
+                const shouldTrackExtremeSearchUsage = false;
                 const shouldTrackAnthropicUsage = getModelProvider(model) === 'anthropic' && lightweightUser.isMaxUser;
                 const shouldTrackGoogleUsage = getModelProvider(model) === 'google' && lightweightUser.isMaxUser;
 
@@ -1650,6 +1665,9 @@ export async function POST(req: Request) {
             model: model as string,
             createdAt: assistantMessageCreatedAt,
             multiAgentMode: shouldUseXaiMultiAgent,
+            requestedSearchMode: requestedGroup,
+            resolvedSearchMode: group,
+            searchModeReason: companionRoute.reason,
           };
 
           if (part.type === 'finish') {
@@ -1668,8 +1686,30 @@ export async function POST(req: Request) {
         },
       });
 
+      const uiMessageStreamWithMetrics = uiMessageStream.pipeThrough(
+        new TransformStream<InferUIMessageChunk<ChatMessage>, InferUIMessageChunk<ChatMessage>>({
+          transform(chunk, controller) {
+            controller.enqueue(chunk);
+          },
+          flush(controller) {
+            controller.enqueue({
+              type: 'data-generation_metrics',
+              data: {
+                completionTime: finalUsageMetadata.completionTime ?? (Date.now() - streamStartTime) / 1000,
+                inputTokens: finalUsageMetadata.inputTokens,
+                outputTokens: finalUsageMetadata.outputTokens,
+                totalTokens: finalUsageMetadata.totalTokens,
+                costUsd: finalCostUsd,
+                resolvedSearchMode: group,
+              },
+              transient: true,
+            });
+          },
+        }),
+      );
+
       dataStream.merge(
-        (group === 'canvas' ? pipeJsonRender(uiMessageStream) : uiMessageStream) as AsyncIterableStream<
+        uiMessageStreamWithMetrics as AsyncIterableStream<
           InferUIMessageChunk<ChatMessage>
         >,
       );

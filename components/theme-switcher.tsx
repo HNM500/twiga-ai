@@ -39,45 +39,10 @@ const THEMES: ThemeConfig[] = [
   },
   {
     value: 'colourful',
-    label: 'Colorful',
-    icon: <span className="text-[10px] font-pixel leading-none">C</span>,
+    label: 'Twiga',
+    icon: <span className="text-[10px] font-pixel leading-none">T</span>,
     colors: ['#3D3428', '#C4A96A', '#5A4D3A'],
-    description: 'Warm & earthy',
-  },
-  {
-    value: 't3chat',
-    label: 'T3 Chat',
-    icon: <span className="text-[10px] font-pixel leading-none">T3</span>,
-    colors: ['#2A1F35', '#9B2B5A', '#4A2D5A'],
-    description: 'Bold & vibrant',
-  },
-  {
-    value: 'claudedark',
-    label: 'Claude Dark',
-    icon: <span className="text-[10px] font-pixel leading-none">CD</span>,
-    colors: ['#352F28', '#C07A3E', '#2A2520'],
-    description: 'Ink & paper, dark',
-  },
-  {
-    value: 'claudelight',
-    label: 'Claude Light',
-    icon: <span className="text-[10px] font-pixel leading-none">CL</span>,
-    colors: ['#F5F0E8', '#B86030', '#E8DDD0'],
-    description: 'Ink & paper, light',
-  },
-  {
-    value: 'neutrallight',
-    label: 'Neutral Light',
-    icon: <span className="text-[10px] font-pixel leading-none">NL</span>,
-    colors: ['#FFFFFF', '#BF6E35', '#F1F1F1'],
-    description: 'Minimal & warm',
-  },
-  {
-    value: 'neutraldark',
-    label: 'Neutral Dark',
-    icon: <span className="text-[10px] font-pixel leading-none">ND</span>,
-    colors: ['#252525', '#9C5B2C', '#434343'],
-    description: 'Muted & focused',
+    description: 'Warm Tanzanian palette',
   },
 ];
 

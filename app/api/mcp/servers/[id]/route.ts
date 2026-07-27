@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/app/actions';
+import { requireTwigaAppsUser } from '@/lib/mcp/access';
 import { ChatSDKError } from '@/lib/errors';
 import {
   deleteUserMcpServer,
@@ -10,6 +11,7 @@ import {
   getEncryptedOAuthValue,
   normalizeMcpScopes,
   validateMcpOAuthConfig,
+  validateResolvedMcpServerUrl,
   validateMcpServerUrl,
 } from '@/lib/mcp/server-config';
 import { z } from 'zod';
@@ -38,12 +40,6 @@ const updateMcpServerSchema = z.object({
   clearOAuthTokens: z.boolean().optional(),
   clearCredentials: z.boolean().optional(),
 });
-
-function assertProUser(user: Awaited<ReturnType<typeof getCurrentUser>>) {
-  if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
-  if (!user.isProUser) throw new ChatSDKError('upgrade_required:auth', 'Pro subscription required');
-  return user;
-}
 
 function serializeMcpServer(server: {
   id: string;
@@ -102,13 +98,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = assertProUser(await getCurrentUser());
+    const user = await requireTwigaAppsUser();
     const { id } = await params;
     const existing = await getUserMcpServerById({ id, userId: user.id });
     if (!existing) return new ChatSDKError('not_found:api', 'MCP server not found').toResponse();
 
     const input = updateMcpServerSchema.parse(await request.json());
-    if (input.url) validateMcpServerUrl(input.url);
+    if (input.url) {
+      validateMcpServerUrl(input.url);
+      await validateResolvedMcpServerUrl(input.url);
+    }
 
     const nextAuthType = input.authType ?? existing.authType;
     validateMcpOAuthConfig({
@@ -207,7 +206,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = assertProUser(await getCurrentUser());
+    const user = await requireTwigaAppsUser();
     const { id } = await params;
     const deleted = await deleteUserMcpServer({ id, userId: user.id });
     if (!deleted) return new ChatSDKError('not_found:api', 'MCP server not found').toResponse();

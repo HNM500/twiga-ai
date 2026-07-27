@@ -1,13 +1,8 @@
 import { getCurrentUser } from '@/app/actions';
+import { requireTwigaAppsUser } from '@/lib/mcp/access';
 import { getUserMcpServerById, updateUserMcpServer } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
 import { exchangeMcpOAuthCode, verifyMcpOAuthState } from '@/lib/mcp/oauth';
-
-function assertProUser(user: Awaited<ReturnType<typeof getCurrentUser>>) {
-  if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
-  if (!user.isProUser) throw new ChatSDKError('upgrade_required:auth', 'Pro subscription required');
-  return user;
-}
 
 function redirectToApps(request: Request, status: 'success' | 'error', message?: string) {
   const url = new URL('/apps', new URL(request.url).origin);
@@ -22,7 +17,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = assertProUser(await getCurrentUser());
+    const user = await requireTwigaAppsUser();
     const { id } = await params;
     const requestUrl = new URL(request.url);
     const code = requestUrl.searchParams.get('code');

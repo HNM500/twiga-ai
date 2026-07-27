@@ -1,9 +1,9 @@
 import { createMCPClient } from '@ai-sdk/mcp';
 import { z } from 'zod';
-import { getCurrentUser } from '@/app/actions';
+import { requireTwigaAppsUser } from '@/lib/mcp/access';
 import { getUserMcpServerById } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
-import { validateMcpServerUrl } from '@/lib/mcp/server-config';
+import { validateResolvedMcpServerUrl } from '@/lib/mcp/server-config';
 import { ChatSDKError } from '@/lib/errors';
 
 const bridgeRequestSchema = z.object({
@@ -20,14 +20,13 @@ const bridgeRequestSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) return new ChatSDKError('unauthorized:auth').toResponse();
+    const user = await requireTwigaAppsUser();
 
     const input = bridgeRequestSchema.parse(await request.json());
     const server = await getUserMcpServerById({ id: input.serverId, userId: user.id });
     if (!server) return new ChatSDKError('not_found:api', 'MCP server not found').toResponse();
 
-    validateMcpServerUrl(server.url);
+    await validateResolvedMcpServerUrl(server.url);
 
     const client = await createMCPClient({
       transport: {

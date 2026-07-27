@@ -2,11 +2,11 @@ import { betterAuth } from 'better-auth/minimal';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { nextCookies } from 'better-auth/next-js';
 import { lastLoginMethod } from 'better-auth/plugins';
-import DodoPayments from 'dodopayments';
 
 import { serverEnv } from '@/env/server';
 import { maindb } from '@/lib/db';
-import { account, session, user, verification } from '@/lib/db/schema';
+import { account, chat, dodosubscription, payment, session, subscription, user, verification } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
 import { invalidateSessionCacheForToken } from './user-data-server';
 
 const trustedOrigins = (serverEnv.ALLOWED_ORIGINS || 'http://localhost:3000').split(',')
@@ -23,14 +23,6 @@ const googleProvider =
       }
     : {};
 
-// Kept temporarily for upstream server actions that are no longer exposed in
-// the Twiga UI. No provider call can succeed without an explicitly configured
-// token; Twiga billing will be implemented in Twiga Core instead.
-export const dodoPayments = new DodoPayments({
-  bearerToken: process.env.DODO_PAYMENTS_API_KEY || 'disabled',
-  environment: 'test_mode',
-});
-
 export const auth = betterAuth({
   appName: 'Twiga AI',
   baseURL: serverEnv.BETTER_AUTH_BASE_URL || 'http://localhost:3000',
@@ -42,6 +34,19 @@ export const auth = betterAuth({
     schema: { user, session, verification, account },
   }),
   socialProviders: googleProvider,
+  user: {
+    deleteUser: {
+      enabled: true,
+      beforeDelete: async (userToDelete) => {
+        await maindb.transaction(async (tx) => {
+          await tx.delete(payment).where(eq(payment.userId, userToDelete.id));
+          await tx.delete(dodosubscription).where(eq(dodosubscription.userId, userToDelete.id));
+          await tx.delete(subscription).where(eq(subscription.userId, userToDelete.id));
+          await tx.delete(chat).where(eq(chat.userId, userToDelete.id));
+        });
+      },
+    },
+  },
   trustedOrigins,
   rateLimit: {
     max: 100,

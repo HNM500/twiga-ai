@@ -658,13 +658,13 @@ const MultiSearch = ({
     [args],
   );
 
+  const allImages = React.useMemo(() => result?.searches.flatMap((search) => search.images) ?? [], [result]);
+  const allResults = React.useMemo(() => result?.searches.flatMap((search) => search.results) ?? [], [result]);
+  const totalResults = allResults.length;
+
   if (!result) {
     return <LoadingState queries={normalizedArgs.queries} annotations={annotations} args={normalizedArgs} />;
   }
-
-  const allImages = React.useMemo(() => result.searches.flatMap((search) => search.images), [result.searches]);
-  const allResults = React.useMemo(() => result.searches.flatMap((search) => search.results), [result.searches]);
-  const totalResults = allResults.length;
 
   // Prevent hydration mismatches by only rendering after client-side mount
   if (!isClient) {

@@ -167,28 +167,6 @@ export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcut
         },
       ],
     },
-    {
-      title: 'XQL Search',
-      icon: <Search className="h-4 w-4" />,
-      shortcuts: [
-        {
-          keys: ['⏎'],
-          description: 'Execute search query',
-          context: 'XQL Search Page',
-        },
-      ],
-    },
-    {
-      title: 'Timezone Selector',
-      icon: <Settings className="h-4 w-4" />,
-      shortcuts: [
-        {
-          keys: ['↑', '↓'],
-          description: 'Navigate timezone list',
-          context: 'Lookout Timezone Selector',
-        },
-      ],
-    },
   ];
 
   return (

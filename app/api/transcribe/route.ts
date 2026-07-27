@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { elevenlabs } from '@ai-sdk/elevenlabs';
 import { experimental_transcribe as transcribe } from 'ai';
+import { TWIGA_FEATURES } from '@/lib/twiga-features';
 
 export async function POST(request: NextRequest) {
+  if (!TWIGA_FEATURES.voiceInput) {
+    return NextResponse.json({ error: 'Voice input is not enabled in the Twiga MVP' }, { status: 404 });
+  }
   try {
     const formData = await request.formData();
     const audio = formData.get('audio');

@@ -75,7 +75,6 @@ import { SEARCH_LIMITS } from '@/lib/constants';
 import { ChatSDKError } from '@/lib/errors';
 import { cn, SearchGroupId } from '@/lib/utils';
 import { requiresProSubscription } from '@/ai/models';
-import { ConnectorProvider } from '@/lib/connectors';
 
 // State management imports
 import { chatReducer, createInitialState } from '@/components/chat-state';
@@ -166,16 +165,15 @@ const ChatInterface = memo(
 
     const [selectedModel, setSelectedModel] = useLocalStorage('scira-selected-model', 'scira-default');
     const initialGroupDefault = (
-      groupParam ? (groupParam as unknown as SearchGroupId) : ('web' as SearchGroupId)
+      groupParam ? (groupParam as unknown as SearchGroupId) : ('auto' as SearchGroupId)
     ) as SearchGroupId;
     const [selectedGroup, setSelectedGroup] = useLocalStorage<SearchGroupId>(
-      'scira-selected-group',
+      'twiga-search-mode',
       initialGroupDefault,
     );
     const effectiveSelectedGroup = (
       groupParam ? (groupParam as unknown as SearchGroupId) : selectedGroup
     ) as SearchGroupId;
-    const [selectedConnectors, setSelectedConnectors] = useState<ConnectorProvider[]>([]);
     const [isMultiAgentModeEnabled, setIsMultiAgentModeEnabled] = useLocalStorage('scira-multi-agent-enabled', false);
     const [isCustomInstructionsEnabled, setIsCustomInstructionsEnabled] = useLocalStorage(
       'scira-custom-instructions-enabled',
@@ -213,16 +211,8 @@ const ChatInterface = memo(
     );
 
     // Get persisted values for dialog states
-    const [persistedHasShownUpgradeDialog, setPersitedHasShownUpgradeDialog] = useLocalStorage(
-      'scira-upgrade-prompt-shown',
-      false,
-    );
     const [persistedHasShownSignInPrompt, setPersitedHasShownSignInPrompt] = useLocalStorage(
       'scira-signin-prompt-shown',
-      false,
-    );
-    const [persistedHasShownLookoutAnnouncement, setPersitedHasShownLookoutAnnouncement] = useLocalStorage(
-      'scira-lookout-announcement-shown',
       false,
     );
 
@@ -246,9 +236,7 @@ const ChatInterface = memo(
       chatReducer,
       createInitialState(
         initialVisibility,
-        persistedHasShownUpgradeDialog,
         persistedHasShownSignInPrompt,
-        persistedHasShownLookoutAnnouncement,
       ),
     );
 
@@ -565,7 +553,6 @@ const ChatInterface = memo(
     const searchProviderRef = useRef(searchProvider);
     const extremeSearchProviderRef = useRef<'exa'>('exa');
     const extremeSearchModelRef = useRef(extremeSearchModel);
-    const selectedConnectorsRef = useRef(selectedConnectors);
     const isMultiAgentModeEnabledRef = useRef(isMultiAgentModeEnabled);
     const isTemporaryChatRef = useRef(isTemporaryChat);
 
@@ -576,7 +563,6 @@ const ChatInterface = memo(
     searchProviderRef.current = searchProvider;
     extremeSearchProviderRef.current = 'exa';
     extremeSearchModelRef.current = extremeSearchModel;
-    selectedConnectorsRef.current = selectedConnectors;
     isMultiAgentModeEnabledRef.current = isMultiAgentModeEnabled;
     isTemporaryChatRef.current = isTemporaryChat;
 
@@ -618,7 +604,6 @@ const ChatInterface = memo(
               searchProvider: searchProviderRef.current,
               extremeSearchProvider: extremeSearchProviderRef.current,
               extremeSearchModel: extremeSearchModelRef.current,
-              selectedConnectors: selectedConnectorsRef.current,
               isTemporaryChat: isTemporaryChatRef.current,
               ...(initialChatId ? { chat_id: initialChatId } : {}),
               ...body,
@@ -1034,18 +1019,9 @@ const ChatInterface = memo(
     useEffect(() => {
       dispatch({
         type: 'SET_ANY_DIALOG_OPEN',
-        payload:
-          chatState.commandDialogOpen ||
-          chatState.showSignInPrompt ||
-          chatState.showUpgradeDialog ||
-          chatState.showAnnouncementDialog,
+        payload: chatState.commandDialogOpen || chatState.showSignInPrompt,
       });
-    }, [
-      chatState.commandDialogOpen,
-      chatState.showSignInPrompt,
-      chatState.showUpgradeDialog,
-      chatState.showAnnouncementDialog,
-    ]);
+    }, [chatState.commandDialogOpen, chatState.showSignInPrompt]);
 
     // Keyboard shortcut for command dialog
     useEffect(() => {
@@ -1432,24 +1408,9 @@ const ChatInterface = memo(
               setCommandDialogOpen={(open) => dispatch({ type: 'SET_COMMAND_DIALOG_OPEN', payload: open })}
               showSignInPrompt={chatState.showSignInPrompt}
               setShowSignInPrompt={(open) => dispatch({ type: 'SET_SHOW_SIGNIN_PROMPT', payload: open })}
-              hasShownSignInPrompt={chatState.hasShownSignInPrompt}
               setHasShownSignInPrompt={(value) => {
                 dispatch({ type: 'SET_HAS_SHOWN_SIGNIN_PROMPT', payload: value });
                 setPersitedHasShownSignInPrompt(value);
-              }}
-              showUpgradeDialog={chatState.showUpgradeDialog}
-              setShowUpgradeDialog={(open) => dispatch({ type: 'SET_SHOW_UPGRADE_DIALOG', payload: open })}
-              hasShownUpgradeDialog={chatState.hasShownUpgradeDialog}
-              setHasShownUpgradeDialog={(value) => {
-                dispatch({ type: 'SET_HAS_SHOWN_UPGRADE_DIALOG', payload: value });
-                setPersitedHasShownUpgradeDialog(value);
-              }}
-              showLookoutAnnouncement={chatState.showAnnouncementDialog}
-              setShowLookoutAnnouncement={(open) => dispatch({ type: 'SET_SHOW_ANNOUNCEMENT_DIALOG', payload: open })}
-              hasShownLookoutAnnouncement={chatState.hasShownAnnouncementDialog}
-              setHasShownLookoutAnnouncement={(value) => {
-                dispatch({ type: 'SET_HAS_SHOWN_ANNOUNCEMENT_DIALOG', payload: value });
-                setPersitedHasShownLookoutAnnouncement(value);
               }}
               user={user}
               setAnyDialogOpen={(open) => dispatch({ type: 'SET_ANY_DIALOG_OPEN', payload: open })}
@@ -1515,40 +1476,15 @@ const ChatInterface = memo(
                             strokeWidth={1.5}
                           />
                         </div>
-                        <h2 className="text-xl font-semibold text-foreground mb-2">All Search Limits Reached</h2>
+                        <h2 className="text-xl font-semibold text-foreground mb-2">Daily limit reached</h2>
                         <p className="text-sm text-muted-foreground">
-                          You've used {SEARCH_LIMITS.DAILY_SEARCH_LIMIT} regular searches and{' '}
-                          {SEARCH_LIMITS.EXTREME_SEARCH_LIMIT} extreme searches
+                          You&apos;ve used today&apos;s allowance of {SEARCH_LIMITS.DAILY_SEARCH_LIMIT} messages.
                         </p>
                       </div>
 
                       {/* Content Section */}
                       <div className="px-8 pb-8">
-                        <div className="space-y-4 mb-8">
-                          <div className="bg-muted/50 rounded-lg p-4">
-                            <h3 className="text-sm font-medium text-foreground mb-2">
-                              {isUserMax ? 'Max Benefits' : 'Pro Benefits'}
-                            </h3>
-                            <ul className="text-sm text-muted-foreground space-y-1">
-                              <li>• Unlimited daily searches</li>
-                              <li>• Faster response times</li>
-                              <li>• Premium AI models</li>
-                              <li>• Priority support</li>
-                            </ul>
-                          </div>
-                        </div>
-
-                        {/* Actions Section */}
                         <div className="space-y-3">
-                          <Button
-                            onClick={() => {
-                              window.location.href = '/pricing';
-                            }}
-                            className="w-full h-10 font-medium"
-                          >
-                            <HugeiconsIcon icon={Crown02Icon} size={16} className="mr-2" strokeWidth={1.5} />
-                            {isUserMax ? 'Manage Max' : 'Upgrade to Max'}
-                          </Button>
                           <Button
                             variant="outline"
                             onClick={() => {
@@ -1558,7 +1494,7 @@ const ChatInterface = memo(
                             }}
                             className="w-full h-9 text-sm"
                           >
-                            Check for updates
+                            Check usage again
                           </Button>
                         </div>
                       </div>
@@ -1661,8 +1597,6 @@ const ChatInterface = memo(
                       }}
                       isLimitBlocked={isLimitBlocked}
                       onOpenSettings={handleOpenSettings}
-                      selectedConnectors={selectedConnectors}
-                      setSelectedConnectors={setSelectedConnectors}
                       isMultiAgentModeEnabled={Boolean(isMultiAgentModeEnabled)}
                       setIsMultiAgentModeEnabled={
                         user
@@ -1736,17 +1670,6 @@ const ChatInterface = memo(
                           <p className="text-sm font-medium text-foreground">All search limits reached</p>
                           <p className="text-xs text-muted-foreground">Resets daily at midnight UTC</p>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            window.location.href = '/pricing';
-                          }}
-                          className="h-8 px-3 text-xs"
-                        >
-                          Upgrade
-                        </Button>
                       </div>
                     </div>
                   </div>
