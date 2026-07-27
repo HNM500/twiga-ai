@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 import { fileURLToPath } from 'node:url';
 import { createJiti } from 'jiti';
+import { withSentryConfig } from '@sentry/nextjs';
 
 const jiti = createJiti(fileURLToPath(import.meta.url));
 
@@ -249,4 +250,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  silent: !process.env.CI,
+});

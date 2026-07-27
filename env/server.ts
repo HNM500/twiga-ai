@@ -26,7 +26,16 @@ export const serverEnv = createEnv({
     BETTER_AUTH_SECRET: requiredString,
     BETTER_AUTH_BASE_URL: optionalString,
     ALLOWED_ORIGINS: z.string().optional().default('http://localhost:3000'),
+    AUTH_COOKIE_DOMAIN: optionalString,
+    ADMIN_EMAIL_ALLOWLIST: optionalString,
+    TWIGA_ADMIN_SERVICE_SECRET: optionalString,
+    SENTRY_DSN: optionalString,
+    SENTRY_AUTH_TOKEN: optionalString,
+    SENTRY_ORG: optionalString,
+    SENTRY_PROJECT: optionalString,
     EXA_API_KEY: requiredString,
+    TWIGA_CORE_URL: z.string().url(),
+    TWIGA_CORE_ASSERTION_SECRET: z.string().min(32),
 
     // Planned authentication and infrastructure
     GOOGLE_CLIENT_ID: optionalString,

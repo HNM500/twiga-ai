@@ -150,6 +150,10 @@ export interface ComprehensiveUserData {
   image: string | null;
   createdAt: Date;
   updatedAt: Date;
+  role: string;
+  banned: boolean;
+  banReason: string | null;
+  banExpires: Date | null;
   isProUser: boolean;
   isMaxUser: boolean;
   planTier: PlanTier;
@@ -496,6 +500,10 @@ export const getComprehensiveUserData = cache(async (): Promise<ComprehensiveUse
               image: user.image,
               userCreatedAt: user.createdAt,
               userUpdatedAt: user.updatedAt,
+              role: user.role,
+              banned: user.banned,
+              banReason: user.banReason,
+              banExpires: user.banExpires,
               // Subscription fields (will be null if no subscription)
               subscriptionId: subscription.id,
               subscriptionCreatedAt: subscription.createdAt,
@@ -640,6 +648,10 @@ export const getComprehensiveUserData = cache(async (): Promise<ComprehensiveUse
       image: userData.image,
       createdAt: userData.userCreatedAt,
       updatedAt: userData.userUpdatedAt,
+      role: userData.role,
+      banned: userData.banned,
+      banReason: userData.banReason,
+      banExpires: userData.banExpires,
       isProUser,
       isMaxUser,
       planTier,

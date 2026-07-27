@@ -23,7 +23,7 @@ WORKDIR /app
 ARG NEXT_PUBLIC_APP_URL=https://twiga.ai
 ARG NEXT_PUBLIC_SOURCE_URL=https://github.com/HNM500/twiga-ai
 ENV SKIP_ENV_VALIDATION=true
-ENV NODE_OPTIONS="--max-old-space-size=3072"
+ENV NODE_OPTIONS="--max-old-space-size=3584"
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_SOURCE_URL=$NEXT_PUBLIC_SOURCE_URL
 # Copy node_modules from deps stage
@@ -36,9 +36,16 @@ RUN npm run typecheck
 # Build the Next.js application
 RUN npm run build
 
-# Migration image used as a one-shot job in local Compose and Railway pre-deploy.
-FROM builder AS migrator
-CMD ["npm", "run", "db:migrate"]
+# Migration image used as a one-shot job in local Compose. It deliberately does
+# not inherit the application build: migrations only need the database driver,
+# Drizzle runtime, the SQL ledger, and the small migration script.
+FROM base AS migrator
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY drizzle/twiga-migrations ./drizzle/twiga-migrations
+COPY scripts/migrate.mjs ./scripts/migrate.mjs
+CMD ["node", "scripts/migrate.mjs"]
 
 # Stage 3: Production runtime
 # Final stage that runs the application

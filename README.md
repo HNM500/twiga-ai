@@ -10,6 +10,7 @@ The approved logo, palette, typography, language, and usage rules are recorded i
 
 - Guest AI chat
 - Cited web search through Exa
+- Reviewed Tanzanian bank discovery through the private Twiga Core directory
 - Saved chats, temporary chats, public sharing and PDF/DOCX export
 - OpenRouter model routing and usage-cost accounting
 - Better Auth with PostgreSQL-backed accounts, sessions, account export and deletion
@@ -30,7 +31,7 @@ Twiga keeps model selection server-side and exposes one product identity to user
 
 OpenRouter provider routing uses fallbacks. User-facing and hard-reasoning calls prefer lower latency, while utility calls prefer lower price. Routine companion reasoning is disabled so tool calls and visible answers are not displaced by hidden reasoning; the dedicated hard-reasoning tier retains a bounded budget.
 
-Google sign-in, Twiga Apps and YouTube search are disabled by default until their readiness checks and credentials are complete. The Tanzanian business directory, business claims, verification and payments are intentionally deferred.
+Google sign-in, Twiga Apps and YouTube search are disabled by default until their readiness checks and credentials are complete. The directory MVP currently covers reviewed Bank of Tanzania-listed institutions; IT companies, business claims, paid verification and payments remain later phases.
 
 ## Required environment variables
 
@@ -45,6 +46,8 @@ ALLOWED_ORIGINS=http://localhost:3000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_SOURCE_URL=https://github.com/HNM500/twiga-ai
 SOURCE_REVISION=local
+TWIGA_CORE_URL=http://twiga-core:4000
+TWIGA_CORE_ASSERTION_SECRET=use-the-same-32-character-or-longer-secret-as-twiga-core
 ```
 
 The model portfolio has production-safe defaults and can be overridden without a code change:
@@ -111,7 +114,7 @@ The application exposes the exact deployed source revision through `NEXT_PUBLIC_
 
 ## Architecture boundary
 
-This repository is the public AGPL Twiga Web application. Future directory, business-claim, verification, billing and entitlement services remain separate and communicate through narrow versioned APIs.
+This repository is the public AGPL Twiga Web application. Its server-only directory tool calls a narrow signed Twiga Core API. Canonical matching, evidence, review, publication, business claims, verification, billing and entitlement logic remain in the separate private service.
 
 ## License
 

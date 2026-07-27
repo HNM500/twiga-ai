@@ -69,6 +69,7 @@ import { loadConfiguredTools } from '@/lib/search/tool-loader';
 import { CohereChatModelOptions } from '@ai-sdk/cohere';
 import { xai } from '@ai-sdk/xai';
 import { getOpenRouterCostUsd, logOperationalError, logOperationalEvent } from '@/lib/observability';
+import { recordGenerationTelemetry } from '@/lib/generation-telemetry';
 
 interface CriticalChecksResult {
   canProceed: boolean;
@@ -1576,6 +1577,19 @@ export async function POST(req: Request) {
             totalTokens: finalUsageMetadata.totalTokens,
             costUsd: getOpenRouterCostUsd(event.steps),
           });
+          recordGenerationTelemetry({
+            requestId: streamId,
+            userId: lightweightUser?.userId,
+            chatId: id,
+            route: group,
+            model,
+            status: 'aborted',
+            durationMs: processingTime * 1000,
+            inputTokens: finalUsageMetadata.inputTokens,
+            outputTokens: finalUsageMetadata.outputTokens,
+            totalTokens: finalUsageMetadata.totalTokens,
+            costUsd: finalCostUsd,
+          }).catch((error) => logOperationalError('generation_telemetry_failed', error, { requestId: streamId }));
           closeMcpToolsSafe().catch(() => null);
         },
         onFinish: async (event) => {
@@ -1598,6 +1612,21 @@ export async function POST(req: Request) {
             costUsd: getOpenRouterCostUsd(event.steps),
             toolCallCount: event.steps.reduce((count, step) => count + step.toolCalls.length, 0),
           });
+          await recordGenerationTelemetry({
+            requestId: streamId,
+            userId: lightweightUser?.userId,
+            chatId: id,
+            route: group,
+            model,
+            providerModel: event.model.modelId,
+            status: 'completed',
+            durationMs: processingTime * 1000,
+            inputTokens: finalUsageMetadata.inputTokens,
+            outputTokens: finalUsageMetadata.outputTokens,
+            totalTokens: finalUsageMetadata.totalTokens,
+            costUsd: finalCostUsd,
+            toolCallCount: event.steps.reduce((count, step) => count + step.toolCalls.length, 0),
+          }).catch((error) => logOperationalError('generation_telemetry_failed', error, { requestId: streamId }));
 
           try {
             if (lightweightUser?.userId && event.finishReason === 'stop') {
@@ -1656,6 +1685,15 @@ export async function POST(req: Request) {
             model,
             durationMs: Math.round(processingTime * 1000),
           });
+          recordGenerationTelemetry({
+            requestId: streamId,
+            userId: lightweightUser?.userId,
+            chatId: id,
+            route: group,
+            model,
+            status: 'failed',
+            durationMs: processingTime * 1000,
+          }).catch((error) => logOperationalError('generation_telemetry_failed', error, { requestId: streamId }));
           closeMcpToolsSafe().catch(() => null);
         },
       });

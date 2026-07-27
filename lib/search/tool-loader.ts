@@ -32,6 +32,11 @@ export async function loadConfiguredTools({
         tools.web_search = webSearchTool(dataStream, searchProvider);
       }
 
+      if (toolName === 'tanzanian_business_directory') {
+        const { tanzanianBusinessDirectoryTool } = await import('@/lib/tools/tanzanian-business-directory');
+        tools.tanzanian_business_directory = tanzanianBusinessDirectoryTool;
+      }
+
       if (toolName === 'youtube_search') {
         const { youtubeSearchTool } = await import('@/lib/tools/youtube-search');
         tools.youtube_search = youtubeSearchTool;

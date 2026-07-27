@@ -23,6 +23,10 @@ export const user = pgTable('user', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').default(false).notNull(),
   image: text('image'),
+  role: text('role').notNull().default('user'),
+  banned: boolean('banned').notNull().default(false),
+  banReason: text('ban_reason'),
+  banExpires: timestamp('ban_expires'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')
     .defaultNow()
@@ -42,6 +46,7 @@ export const session = pgTable(
       .notNull(),
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
+    impersonatedBy: text('impersonated_by'),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
@@ -159,6 +164,95 @@ export const answerFeedback = pgTable(
   (table) => [
     index('answerFeedback_messageId_idx').on(table.messageId),
     index('answerFeedback_userId_createdAt_idx').on(table.userId, table.createdAt),
+  ],
+);
+
+export const adminFeedbackReview = pgTable(
+  'admin_feedback_review',
+  {
+    feedbackId: text('feedback_id')
+      .primaryKey()
+      .references(() => answerFeedback.id, { onDelete: 'cascade' }),
+    status: varchar('status', { enum: ['open', 'in_review', 'resolved'] })
+      .notNull()
+      .default('open'),
+    assignedToUserId: text('assigned_to_user_id').references(() => user.id, { onDelete: 'set null' }),
+    resolution: text('resolution'),
+    resolvedAt: timestamp('resolved_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [index('adminFeedbackReview_status_updatedAt_idx').on(table.status, table.updatedAt)],
+);
+
+export const adminFeedbackNote = pgTable(
+  'admin_feedback_note',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    feedbackId: text('feedback_id')
+      .notNull()
+      .references(() => answerFeedback.id, { onDelete: 'cascade' }),
+    authorUserId: text('author_user_id').references(() => user.id, { onDelete: 'set null' }),
+    authorEmail: text('author_email').notNull(),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [index('adminFeedbackNote_feedbackId_createdAt_idx').on(table.feedbackId, table.createdAt)],
+);
+
+export const adminAuditLog = pgTable(
+  'admin_audit_log',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    actorUserId: text('actor_user_id'),
+    actorEmail: text('actor_email').notNull(),
+    actorRole: text('actor_role').notNull(),
+    action: text('action').notNull(),
+    targetType: text('target_type').notNull(),
+    targetId: text('target_id').notNull(),
+    reason: text('reason').notNull(),
+    requestId: text('request_id').notNull(),
+    beforeState: jsonb('before_state').$type<Record<string, unknown> | null>(),
+    afterState: jsonb('after_state').$type<Record<string, unknown> | null>(),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('adminAuditLog_createdAt_idx').on(table.createdAt),
+    index('adminAuditLog_actorUserId_createdAt_idx').on(table.actorUserId, table.createdAt),
+    index('adminAuditLog_target_idx').on(table.targetType, table.targetId, table.createdAt),
+  ],
+);
+
+export const generationTelemetry = pgTable(
+  'generation_telemetry',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => generateId()),
+    requestId: text('request_id').notNull().unique(),
+    userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+    chatId: text('chat_id'),
+    route: text('route').notNull(),
+    model: text('model').notNull(),
+    providerModel: text('provider_model'),
+    status: varchar('status', { enum: ['completed', 'aborted', 'failed'] }).notNull(),
+    durationMs: integer('duration_ms').notNull(),
+    inputTokens: integer('input_tokens'),
+    outputTokens: integer('output_tokens'),
+    totalTokens: integer('total_tokens'),
+    costUsd: real('cost_usd'),
+    toolCallCount: integer('tool_call_count'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    index('generationTelemetry_createdAt_idx').on(table.createdAt),
+    index('generationTelemetry_route_createdAt_idx').on(table.route, table.createdAt),
+    index('generationTelemetry_status_createdAt_idx').on(table.status, table.createdAt),
   ],
 );
 

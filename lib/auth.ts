@@ -1,13 +1,14 @@
 import { betterAuth } from 'better-auth/minimal';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { nextCookies } from 'better-auth/next-js';
-import { lastLoginMethod } from 'better-auth/plugins';
+import { admin, lastLoginMethod } from 'better-auth/plugins';
 
 import { serverEnv } from '@/env/server';
 import { maindb } from '@/lib/db';
 import { account, chat, dodosubscription, payment, session, subscription, user, verification } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { invalidateSessionCacheForToken } from './user-data-server';
+import { adminAccessControl, authRoles } from './admin/permissions';
 
 const trustedOrigins = (serverEnv.ALLOWED_ORIGINS || 'http://localhost:3000').split(',')
   .map((origin) => origin.trim())
@@ -48,6 +49,14 @@ export const auth = betterAuth({
     },
   },
   trustedOrigins,
+  advanced: serverEnv.AUTH_COOKIE_DOMAIN
+    ? {
+        crossSubDomainCookies: {
+          enabled: true,
+          domain: serverEnv.AUTH_COOKIE_DOMAIN,
+        },
+      }
+    : undefined,
   rateLimit: {
     max: 100,
     window: 60,
@@ -61,5 +70,16 @@ export const auth = betterAuth({
       },
     },
   },
-  plugins: [lastLoginMethod(), nextCookies()],
+  plugins: [
+    admin({
+      ac: adminAccessControl,
+      roles: authRoles,
+      defaultRole: 'user',
+      adminRoles: ['super_admin'],
+      defaultBanReason: 'Suspended by Twiga staff',
+      bannedUserMessage: 'This account is currently suspended. Contact Twiga support if you believe this is a mistake.',
+    }),
+    lastLoginMethod(),
+    nextCookies(),
+  ],
 });

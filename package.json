@@ -15,6 +15,7 @@
     "smoke:production": "node scripts/smoke-production.mjs",
     "db:migrate": "drizzle-kit migrate --config=drizzle.twiga.config.ts",
     "db:generate": "drizzle-kit generate --config=drizzle.twiga.config.ts",
+    "admin:grant": "bun scripts/grant-admin.ts",
     "typecheck:watch": "tsgo --noEmit --watch",
     "fix": "prettier --write . --ignore-path .gitignore",
     "knip": "knip",
@@ -77,6 +78,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
+    "@sentry/nextjs": "10.68.0",
     "@supadata/js": "^1.4.0",
     "@supermemory/tools": "^1.4.1",
     "@t3-oss/env-nextjs": "^0.13.10",
@@ -181,6 +183,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
+    "@types/bun": "^1.3.14",
     "@types/canvas-confetti": "^1.9.0",
     "@types/d3-array": "^3.2.2",
     "@types/google.maps": "^3.58.1",
