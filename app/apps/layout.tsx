@@ -20,7 +20,6 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title,
     description,
-    creator: '@sciraai',
   },
   alternates: {
     canonical: 'https://twiga.ai/apps',

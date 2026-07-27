@@ -5,7 +5,7 @@ function SignUpContent() {
   return (
     <AuthCard
       title="Create an account"
-      description="Join 100K+ researchers using AI-powered search with real-time citations."
+      description="Create your Twiga account to keep conversations and preferences in sync."
       mode="sign-up"
     />
   );

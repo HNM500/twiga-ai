@@ -143,7 +143,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   // Use optimized combined query to get chat, user, and messages in fewer DB calls
   let { chat, messages: messagesFromDb } = chatBundle;
 
-  // Lookout/scheduled runs create chats server-side; replica reads can lag.
+  // Fresh server-created chats can briefly lag on a read replica.
   // If the replica returns no chat or no messages, fall back to the primary DB for fresh reads.
   if (primaryFallback) {
     chat = primaryFallback.chat ?? chat;

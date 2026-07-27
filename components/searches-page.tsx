@@ -235,7 +235,8 @@ export function SearchesPage({ userId }: SearchesPageProps) {
   const toggleChatSelection = useCallback((chatId: string) => {
     setSelectedChatIds((prev) => {
       const next = new Set(prev);
-      next.has(chatId) ? next.delete(chatId) : next.add(chatId);
+      if (next.has(chatId)) next.delete(chatId);
+      else next.add(chatId);
       return next;
     });
   }, []);

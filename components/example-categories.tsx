@@ -4,9 +4,6 @@ import React, { useState, useCallback, memo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import {
-  RedditIcon,
-  NewTwitterIcon,
-  YoutubeIcon,
   GlobalSearchIcon,
   MicroscopeIcon,
   ArrowRight01Icon,
@@ -22,55 +19,54 @@ interface ExampleItem {
 interface Category {
   id: string;
   name: string;
-  icon: typeof RedditIcon;
+  icon: typeof GlobalSearchIcon;
   examples: ExampleItem[];
   badge?: string;
 }
 
 const categories: Category[] = [
   {
-    id: 'x',
-    name: 'X Search',
-    icon: NewTwitterIcon,
+    id: 'business',
+    name: 'Business',
+    icon: GlobalSearchIcon,
     examples: [
-      { text: "What has Elon Musk posted about AI this week?", group: 'x' },
-      { text: 'Latest announcements from OpenAI', group: 'x' },
-      { text: 'Tips for using Claude Code with other models', group: 'x' },
-      { text: 'What are developers saying about Cursor IDE?', group: 'x' },
+      { text: 'How do I register a small business in Tanzania?', group: 'auto' },
+      { text: 'Find reliable accountants for an SME in Dar es Salaam', group: 'auto' },
+      { text: 'What licences might a food business need in Tanzania?', group: 'auto' },
+      { text: 'Help me compare mobile money options for my business', group: 'auto' },
     ],
   },
   {
-    id: 'reddit',
-    name: 'Reddit Search',
-    icon: RedditIcon,
-    examples: [
-      { text: 'Best mechanical keyboards for programming', group: 'reddit' },
-      { text: 'Productivity apps that actually work', group: 'reddit' },
-      { text: 'Is the M5 MacBook Pro worth buying?', group: 'reddit' },
-      { text: 'Budget headphones under $100', group: 'reddit' },
-    ],
-  },
-  {
-    id: 'research',
-    name: 'Research',
+    id: 'government',
+    name: 'Services',
     icon: MicroscopeIcon,
-    badge: 'Deep',
     examples: [
-      { text: 'Latest research on transformer architectures', group: 'academic' },
-      { text: 'Compare RAG vs fine-tuning for LLMs with sources', group: 'extreme' },
-      { text: 'Peer-reviewed papers on climate adaptation', group: 'academic' },
-      { text: 'In-depth analysis of quantum computing progress', group: 'extreme' },
+      { text: 'How do I apply for a Tanzanian passport?', group: 'auto' },
+      { text: 'Explain the steps for getting a TIN number', group: 'auto' },
+      { text: 'Where can I check current TRA guidance?', group: 'auto' },
+      { text: 'What documents do I need to renew a driving licence?', group: 'auto' },
     ],
   },
   {
-    id: 'media',
-    name: 'Videos',
-    icon: YoutubeIcon,
+    id: 'money',
+    name: 'Money',
+    icon: GlobalSearchIcon,
     examples: [
-      { text: 'Best tutorials for learning Rust', group: 'youtube' },
-      { text: 'Top tech review channels for MacBook Pro', group: 'youtube' },
-      { text: 'Documentary recommendations about space', group: 'youtube' },
-      { text: 'Recent conference talks on system design', group: 'youtube' },
+      { text: 'Explain today’s TZS to USD exchange rate in simple terms', group: 'auto' },
+      { text: 'Help me make a monthly household budget in shillings', group: 'auto' },
+      { text: 'Compare current savings account options in Tanzania', group: 'auto' },
+      { text: 'What should I check before taking a mobile loan?', group: 'auto' },
+    ],
+  },
+  {
+    id: 'everyday',
+    name: 'Everyday',
+    icon: MicroscopeIcon,
+    examples: [
+      { text: 'Nisaidie kuandika barua rasmi kwa Kiswahili', group: 'auto' },
+      { text: 'Plan a three-day trip to Zanzibar on a budget', group: 'auto' },
+      { text: 'Explain this contract clause in plain language', group: 'auto' },
+      { text: 'Help me prepare questions for a job interview', group: 'auto' },
     ],
   },
   {
@@ -78,10 +74,10 @@ const categories: Category[] = [
     name: 'Fact Check',
     icon: GlobalSearchIcon,
     examples: [
-      { text: 'Is it true that honey never spoils?', group: 'web' },
-      { text: 'Verify: humans only use 10% of their brain', group: 'web' },
-      { text: 'Did Einstein really fail math?', group: 'web' },
-      { text: 'Fact check the 5-second rule for food', group: 'web' },
+      { text: 'Verify this claim using reliable Tanzanian sources', group: 'auto' },
+      { text: 'Is this government notice current and authentic?', group: 'auto' },
+      { text: 'Check whether this health claim is supported by evidence', group: 'auto' },
+      { text: 'Summarise what trustworthy sources say about this story', group: 'auto' },
     ],
   },
 ];

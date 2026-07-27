@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { assertTwigaAppsEnabled } from '@/lib/mcp/access';
 
 function getAppOrigin(request: Request) {
   const oauthOrigin = process.env.MCP_OAUTH_CALLBACK_ORIGIN?.trim();
@@ -12,6 +13,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ serverId: string }> },
 ) {
+  assertTwigaAppsEnabled();
   const { serverId } = await params;
   const origin = getAppOrigin(request);
   const callbackUri = `${origin}/api/mcp/oauth/callback`;

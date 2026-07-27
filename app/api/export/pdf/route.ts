@@ -2034,7 +2034,7 @@ export async function POST(req: NextRequest) {
     const view = new Uint8Array(ab);
     view.set(pdfBytes);
 
-    const filename = `scira-export.pdf`;
+    const filename = `twiga-export.pdf`;
     return new Response(ab, {
       status: 200,
       headers: {

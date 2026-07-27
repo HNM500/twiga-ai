@@ -409,6 +409,7 @@ const Messages: React.FC<MessagesProps> = ({
                 onHighlight={onHighlight}
                 attachmentsRenderer={attachmentsRenderer}
                 onBeforeSubmit={onBeforeSubmit}
+                chatId={chatId}
                 shouldReduceHeight={
                   message.role === 'assistant'
                     ? isTransitioning || status === 'submitted' || memoizedMessages[memoizedMessages.length - 1]?.role === 'user'

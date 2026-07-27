@@ -80,12 +80,12 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
     case 'forbidden:auth':
       return 'Your account does not have access to this feature.';
     case 'upgrade_required:auth':
-      return 'This feature requires a Pro subscription. Sign in and upgrade to continue.';
+      return 'This feature is not available in the Twiga MVP.';
 
     case 'rate_limit:chat':
       return 'You have exceeded your maximum number of messages for the day. Please try again later.';
     case 'upgrade_required:chat':
-      return 'You have reached your daily search limit. Upgrade to Pro for unlimited searches.';
+      return 'You have reached your daily message limit. Please try again tomorrow.';
     case 'not_found:chat':
       return 'The requested chat was not found. Please check the chat ID and try again.';
     case 'forbidden:chat':
@@ -104,7 +104,7 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
     case 'upgrade_required:model':
       return 'This premium AI model is only available with a Pro subscription.';
     case 'rate_limit:model':
-      return 'You have reached the usage limit for this AI model. Upgrade to Pro for unlimited access.';
+      return 'You have reached the usage limit for this AI model. Please try again later.';
 
     case 'forbidden:api':
       return 'Access denied';
@@ -178,15 +178,13 @@ export function getErrorActions(error: ChatSDKError): {
 
   if (isProRequired(error)) {
     return {
-      primary: { label: 'Upgrade to Pro', action: 'upgrade' },
-      secondary: { label: 'Check Again', action: 'refresh' },
+      primary: { label: 'Check Again', action: 'refresh' },
     };
   }
 
   if (isRateLimited(error)) {
     return {
-      primary: { label: 'Upgrade to Pro', action: 'upgrade' },
-      secondary: { label: 'Try Again Later', action: 'retry' },
+      primary: { label: 'Try Again Later', action: 'retry' },
     };
   }
 
@@ -198,7 +196,7 @@ export function getErrorActions(error: ChatSDKError): {
 // Helper function to get error icon type
 export function getErrorIcon(error: ChatSDKError): 'warning' | 'error' | 'upgrade' | 'auth' {
   if (isSignInRequired(error)) return 'auth';
-  if (isProRequired(error) || isRateLimited(error)) return 'upgrade';
+  if (isProRequired(error) || isRateLimited(error)) return 'warning';
   if (error.type === 'offline') return 'warning';
   return 'error';
 }

@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/app/actions';
+import { requireTwigaAppsUser } from '@/lib/mcp/access';
 import { ChatSDKError } from '@/lib/errors';
 import { createUserMcpServer, getUserMcpServersByUserId } from '@/lib/db/queries';
 import {
@@ -6,6 +7,7 @@ import {
   getEncryptedOAuthValue,
   normalizeMcpScopes,
   validateMcpOAuthConfig,
+  validateResolvedMcpServerUrl,
   validateMcpServerUrl,
 } from '@/lib/mcp/server-config';
 import { z } from 'zod';
@@ -31,12 +33,6 @@ const createMcpServerSchema = z.object({
   oauthClientSecret: z.string().optional(),
   isEnabled: z.boolean().optional(),
 });
-
-function assertProUser(user: Awaited<ReturnType<typeof getCurrentUser>>) {
-  if (!user) throw new ChatSDKError('unauthorized:auth', 'Authentication required');
-  if (!user.isProUser) throw new ChatSDKError('upgrade_required:auth', 'Pro subscription required');
-  return user;
-}
 
 function serializeMcpServer(server: {
   id: string;
@@ -90,7 +86,7 @@ function serializeMcpServer(server: {
 
 export async function GET() {
   try {
-    const user = assertProUser(await getCurrentUser());
+    const user = await requireTwigaAppsUser();
     const servers = await getUserMcpServersByUserId({ userId: user.id });
     return Response.json({ servers: servers.map(serializeMcpServer) });
   } catch (error) {
@@ -102,9 +98,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const user = assertProUser(await getCurrentUser());
+    const user = await requireTwigaAppsUser();
     const input = createMcpServerSchema.parse(await request.json());
     validateMcpServerUrl(input.url);
+    await validateResolvedMcpServerUrl(input.url);
     validateMcpOAuthConfig(input);
 
     const created = await createUserMcpServer({

@@ -2,6 +2,8 @@ import 'server-only';
 
 import type { UserMcpServer } from '@/lib/db/schema';
 import { decryptMcpCredentials, encryptMcpCredentials } from '@/lib/mcp/crypto';
+export { validateMcpServerUrl, validateResolvedMcpServerUrl } from '@/lib/mcp/url-security';
+import { validateMcpServerUrl } from '@/lib/mcp/url-security';
 
 export type McpAuthType = 'none' | 'bearer' | 'header' | 'oauth';
 export type McpTransportType = 'http' | 'sse';
@@ -33,24 +35,6 @@ export interface McpServerInput {
   oauthClientId?: string;
   oauthClientSecret?: string;
   isEnabled?: boolean;
-}
-
-export function validateMcpServerUrl(url: string) {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    throw new Error('Invalid URL');
-  }
-
-  const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
-  const isDev = process.env.NODE_ENV !== 'production';
-  const isHttps = parsed.protocol === 'https:';
-  const isAllowedLocalHttp = isDev && isLocalhost && parsed.protocol === 'http:';
-
-  if (!isHttps && !isAllowedLocalHttp) {
-    throw new Error('Only https URLs are allowed in production (http localhost allowed in development)');
-  }
 }
 
 export function getEncryptedMcpCredentials(input: McpServerInput) {

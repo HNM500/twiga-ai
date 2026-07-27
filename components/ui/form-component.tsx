@@ -53,9 +53,8 @@ import { cn, SearchGroup, SearchGroupId, getSearchGroups, SearchProvider } from 
 import { track } from '@vercel/analytics';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ComprehensiveUserData } from '@/hooks/use-user-data';
-import { enhancePrompt, getDiscountConfigAction, getUserCountryCode } from '@/app/actions';
-import { DiscountConfig } from '@/lib/discount';
-import { PRICING, SEARCH_LIMITS } from '@/lib/constants';
+import { enhancePrompt, getUserCountryCode } from '@/app/actions';
+import { SEARCH_LIMITS } from '@/lib/constants';
 import { LockIcon, Eye, Brain, FilePdf, MagnifyingGlassIcon } from '@phosphor-icons/react';
 import { HugeiconsIcon } from '@/components/ui/hugeicons';
 import {
@@ -80,15 +79,13 @@ import { SarvamLogo } from '@/components/logos/sarvam-logo';
 import type { SVGProps } from 'react';
 import { UseChatHelpers } from '@ai-sdk/react';
 import { ChatMessage } from '@/lib/types';
-import { useLocation } from '@/hooks/use-location';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { CONNECTOR_CONFIGS, CONNECTOR_ICONS, type ConnectorProvider } from '@/lib/connectors';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { listUserConnectorsAction } from '@/app/actions';
 import { CaretDownIcon } from '@phosphor-icons/react/dist/ssr';
 import { useWebHaptics } from 'web-haptics/react';
+import { TWIGA_FEATURES } from '@/lib/twiga-features';
 
 type SvgIconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 type HugeiconsIconProp = React.ComponentProps<typeof HugeiconsIcon>['icon'];
@@ -642,17 +639,6 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
         return safeText.replace(pattern, '<mark class="bg-primary/80 text-primary-foreground rounded px-px">$1</mark>');
       },
       [searchQuery, escapeHtml, escapeRegExp],
-    );
-
-    const pricing = useMemo(
-      () => ({
-        usd: {
-          originalPrice: PRICING.PRO_MONTHLY,
-          finalPrice: PRICING.PRO_MONTHLY,
-          hasDiscount: false,
-        },
-      }),
-      [],
     );
 
     const isFilePart = useCallback((p: unknown): p is { type: 'file'; mediaType?: string } => {
@@ -1511,29 +1497,6 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
               </div>
             )}
 
-            {/* Upgrade Banner (for non-pro users) */}
-            {!isProUser && (
-              <div
-                onClick={() => {
-                  setShowUpgradeDialog(true);
-                }}
-                className="mx-2 mb-1 p-2 rounded-lg bg-linear-to-r from-primary/6 via-secondary/4 to-accent/6 border border-primary/15 cursor-pointer hover:border-primary/30 transition-colors duration-200 shrink-0"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-medium">Unlock all models</span>
-                      <ProBadge className="scale-[0.7] origin-left" />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">Starting at ${PRICING.PRO_MONTHLY}/mo</p>
-                  </div>
-                  <Button type="button" size="sm" className="h-6 text-[10px] px-2.5 rounded-md shrink-0">
-                    Upgrade
-                  </Button>
-                </div>
-              </div>
-            )}
-
             {/* Model List */}
             <div
               ref={modelListRef}
@@ -1711,139 +1674,6 @@ const ModelSwitcher: React.FC<ModelSwitcherProps> = React.memo(
             </PopoverContent>
           </Popover>
         )}
-        {/* Upgrade Dialog */}
-        <Dialog
-          open={showUpgradeDialog}
-          onOpenChange={(nextOpen) => {
-            // Prevent lifecycle/cleanup events from auto-closing this dialog.
-            // We only allow explicit close actions (e.g. "Not now").
-            if (nextOpen) setShowUpgradeDialog(true);
-          }}
-        >
-          <DialogContent
-            className="sm:max-w-[400px] p-0 gap-0 overflow-hidden"
-            showCloseButton={false}
-            onInteractOutside={(event) => event.preventDefault()}
-            onFocusOutside={(event) => event.preventDefault()}
-          >
-            {/* Hero */}
-            <div className="relative px-6 pt-8 pb-6 text-center">
-              <div className="absolute inset-0 bg-[url('/placeholder.png')] bg-cover bg-center">
-                <div className="absolute inset-0 bg-linear-to-t from-background via-background/80 to-background/40" />
-              </div>
-              <div className="relative z-10">
-                {selectedProModel?.label ? (
-                  <div className="space-y-1.5">
-                    <p className="text-lg font-semibold tracking-tight">{selectedProModel.label}</p>
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className="text-xs text-muted-foreground">requires</span>
-                      {selectedRequiresMax ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary leading-none uppercase tracking-wider">
-                          Max
-                        </span>
-                      ) : (
-                        <ProBadge />
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center gap-2">
-                    <p className="text-3xl font-semibold tracking-tight font-be-vietnam-pro">Twiga AI</p>
-                    <ProBadge />
-                  </div>
-                )}
-
-                <div className="flex items-baseline justify-center gap-1.5 mt-4">
-                  {selectedRequiresMax ? (
-                    <span className="text-2xl font-bold">$60</span>
-                  ) : pricing.usd.hasDiscount ? (
-                    <>
-                      <span className="text-sm text-muted-foreground line-through">${pricing.usd.originalPrice}</span>
-                      <span className="text-2xl font-bold">${pricing.usd.finalPrice.toFixed(2)}</span>
-                    </>
-                  ) : (
-                    <span className="text-2xl font-bold">${pricing.usd.finalPrice}</span>
-                  )}
-                  <span className="font-pixel text-[10px] text-muted-foreground/50 uppercase tracking-wider">/mo</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Features */}
-            <div className="px-6 pb-6 space-y-4">
-              <div className="rounded-xl border border-border/60 overflow-hidden grid grid-cols-2">
-                {(selectedRequiresMax
-                  ? [
-                      { title: 'All paid features', desc: 'Unlimited searches & more' },
-                      { title: 'Claude 4.6 Opus', desc: 'Most advanced Anthropic LLM' },
-                      { title: 'Claude 4.6 Opus Thinking', desc: 'With extended reasoning' },
-                      { title: 'Claude 4.5 Opus', desc: 'Previous advanced LLM' },
-                      { title: 'Claude 4.6 Sonnet', desc: 'Latest Sonnet model' },
-                      { title: 'Claude 4.5 Haiku', desc: 'Fast and efficient' },
-                      { title: '1M context window', desc: 'For Anthropic models' },
-                      { title: 'Canvas support', desc: 'Visualization mode' },
-                    ]
-                  : [
-                      { title: 'All standard AI models', desc: 'GPT-5.2, Gemini 3.1, Grok 4.1' },
-                      { title: 'Unlimited searches', desc: 'No daily limits' },
-                      { title: 'Extreme research', desc: 'Multi-step deep analysis' },
-                      { title: 'Voice mode', desc: 'Hands-free conversations' },
-                      { title: 'XQL', desc: 'Natural language X search' },
-                      { title: 'Lookout', desc: 'Scheduled monitoring' },
-                      { title: 'Connectors', desc: 'Drive, Notion, OneDrive' },
-                      { title: 'Prompt enhance', desc: 'AI-powered optimization' },
-                    ]
-                ).map((f, i) => (
-                  <div
-                    key={f.title}
-                    className={cn(
-                      'flex items-start gap-2 p-2.5',
-                      i % 2 === 0 && 'border-r border-border/40',
-                      i < 6 && 'border-b border-border/40',
-                    )}
-                  >
-                    <CheckIcon className="size-3 text-primary shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-medium leading-tight">{f.title}</p>
-                      <p className="font-pixel text-[8px] text-muted-foreground/50 uppercase tracking-wider mt-0.5">
-                        {f.desc}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <Button
-                onClick={() => {
-                  window.location.href = '/pricing';
-                }}
-                className="w-full rounded-lg h-9"
-              >
-                {selectedRequiresMax ? 'Upgrade to Max' : 'Upgrade to Pro'}
-              </Button>
-
-              {selectedRequiresMax && isProUser && (
-                <p className="text-[10px] text-center text-muted-foreground/60 leading-relaxed">
-                  Your existing paid subscription will be automatically cancelled once Max is activated.
-                </p>
-              )}
-
-              <div className="flex items-center justify-center gap-3">
-                <p className="font-pixel text-[9px] text-muted-foreground/40 uppercase tracking-wider">
-                  Cancel anytime · Secure payment
-                </p>
-              </div>
-
-              <button
-                onClick={() => setShowUpgradeDialog(false)}
-                className="w-full text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors py-1"
-              >
-                Not now
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
         {/* Sign In Dialog */}
         <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>
           <DialogContent className="sm:max-w-[400px] p-0 gap-0 overflow-hidden" showCloseButton={false}>
@@ -2197,8 +2027,6 @@ interface FormComponentProps {
   setHasSubmitted: React.Dispatch<React.SetStateAction<boolean>>;
   isLimitBlocked?: boolean;
   onOpenSettings?: (tab?: string) => void;
-  selectedConnectors?: ConnectorProvider[];
-  setSelectedConnectors?: React.Dispatch<React.SetStateAction<ConnectorProvider[]>>;
   usageData?: { messageCount: number; extremeSearchCount: number; error: string | null } | null;
   isTemporaryChatEnabled: boolean;
   isTemporaryChat: boolean;
@@ -2221,134 +2049,12 @@ interface GroupSelectorProps {
   onShowUpgrade?: () => void;
 }
 
-interface ConnectorSelectorProps {
-  selectedConnectors: ConnectorProvider[];
-  onConnectorToggle: (provider: ConnectorProvider) => void;
-  user: ComprehensiveUserData | null;
-  isProUser?: boolean;
-}
-
-// Connector Selector Component
-const ConnectorSelector: React.FC<ConnectorSelectorProps> = React.memo(
-  ({ selectedConnectors, onConnectorToggle, user, isProUser }) => {
-    const [open, setOpen] = useState(false);
-    const isMobile = useIsMobile();
-    const haptics = useWebHaptics();
-
-    const { data: connectorsData } = useQuery({
-      queryKey: ['connectors', user?.id],
-      queryFn: listUserConnectorsAction,
-      enabled: !!user && isProUser,
-      staleTime: 1000 * 60 * 2,
-    });
-
-    const connectedProviders = connectorsData?.connections?.map((conn) => conn.provider) || [];
-    const availableConnectors = Object.entries(CONNECTOR_CONFIGS).filter(([provider]) =>
-      connectedProviders.includes(provider as ConnectorProvider),
-    );
-
-    const selectedCount = selectedConnectors.length;
-    const isSingleConnector = availableConnectors.length === 1;
-
-    React.useEffect(() => {
-      if (isProUser && selectedCount === 0 && availableConnectors.length > 0) {
-        availableConnectors.forEach(([provider]) => {
-          onConnectorToggle(provider as ConnectorProvider);
-        });
-      }
-    }, [isProUser, selectedCount, availableConnectors, onConnectorToggle]);
-
-    if (!isProUser || availableConnectors.length === 0) return null;
-
-    const handleToggle = (provider: ConnectorProvider) => {
-      if (isSingleConnector && selectedConnectors.includes(provider)) return;
-      haptics.trigger('selection');
-      onConnectorToggle(provider);
-    };
-
-    const handleOpenChange = useCallback(
-      (nextOpen: boolean) => {
-        setOpen(nextOpen);
-        if (nextOpen) haptics.trigger('light');
-      },
-      [haptics],
-    );
-
-    const connectorItems = availableConnectors.map(([provider, config]) => {
-      const IconComponent = CONNECTOR_ICONS[config.icon];
-      const isChecked = selectedConnectors.includes(provider as ConnectorProvider);
-      const isDisabled = isSingleConnector && isChecked;
-      return (
-        <div
-          key={provider}
-          className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-md hover:bg-accent transition-colors"
-        >
-          {IconComponent && <IconComponent className="size-4 shrink-0" />}
-          <span className="flex-1 text-[13px]">{config.name}</span>
-          <Switch
-            checked={isChecked}
-            onCheckedChange={() => handleToggle(provider as ConnectorProvider)}
-            disabled={isDisabled}
-            className="scale-75 origin-right"
-          />
-        </div>
-      );
-    });
-
-    if (isMobile) {
-      return (
-        <Drawer open={open} onOpenChange={handleOpenChange}>
-          <DrawerTrigger asChild>
-            <button className="flex items-center gap-1.5 px-2.5 h-8 rounded-full bg-primary/8 text-primary/80 text-[12px] font-medium hover:bg-primary/12 hover:text-primary transition-colors">
-              <HugeiconsIcon icon={ConnectIcon} size={14} color="currentColor" strokeWidth={1.5} />
-              <span>Connectors</span>
-              <span className="text-primary/50">
-                {selectedCount}/{availableConnectors.length}
-              </span>
-            </button>
-          </DrawerTrigger>
-          <DrawerContent className="max-h-[60vh]">
-            <DrawerHeader className="text-left pb-1">
-              <DrawerTitle className="text-sm">Select Connectors</DrawerTitle>
-            </DrawerHeader>
-            <div className="px-1 pb-4">{connectorItems}</div>
-          </DrawerContent>
-        </Drawer>
-      );
-    }
-
-    return (
-      <Popover open={open} onOpenChange={handleOpenChange}>
-        <PopoverTrigger asChild>
-          <button className="flex items-center gap-1.5 px-2.5 h-8 rounded-full bg-primary/8 text-primary/80 text-[12px] font-medium hover:bg-primary/12 hover:text-primary transition-colors">
-            <HugeiconsIcon icon={ConnectIcon} size={14} color="currentColor" strokeWidth={1.5} />
-            <span>Connectors</span>
-            <span className="text-primary/50">
-              {selectedCount}/{availableConnectors.length}
-            </span>
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-52 p-1 font-sans rounded-lg bg-popover border shadow-lg"
-          align="start"
-          side="bottom"
-          sideOffset={6}
-        >
-          {connectorItems}
-        </PopoverContent>
-      </Popover>
-    );
-  },
-);
-
-ConnectorSelector.displayName = 'ConnectorSelector';
 
 interface McpServerSelectorProps {
   user: ComprehensiveUserData | null;
-  isProUser?: boolean;
 }
 
-const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user, isProUser }) => {
+const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const isMobile = useIsMobile();
@@ -2372,7 +2078,7 @@ const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user, 
         }>;
       }>;
     },
-    enabled: Boolean(user?.id && isProUser),
+    enabled: Boolean(user?.id),
     staleTime: 10_000,
   });
 
@@ -2437,7 +2143,7 @@ const McpServerSelector: React.FC<McpServerSelectorProps> = React.memo(({ user, 
     [haptics],
   );
 
-  if (!isProUser || servers.length === 0) return null;
+  if (servers.length === 0) return null;
 
   const serverItems = (
     <div className="flex flex-col min-h-0">
@@ -2836,7 +2542,7 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                   Daily limit reached ({SEARCH_LIMITS.DAILY_SEARCH_LIMIT} searches)
                 </p>
                 <a
-                  href="/pricing"
+                  href="/settings?tab=usage"
                   className="group inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
                 >
                   Upgrade for unlimited
@@ -2883,16 +2589,16 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                 <span>
                   {'requirePro' in selectedGroupData && selectedGroupData.requirePro
                     ? 'Unlock with Pro'
-                    : 'Unlimited with Pro'}
+                    : 'Account usage limit'}
                 </span>
               </div>
               <a
-                href="/pricing"
+                href="/settings?tab=usage"
                 className="group inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
               >
                 {'requirePro' in selectedGroupData && selectedGroupData.requirePro
-                  ? 'Explore pricing'
-                  : 'Upgrade to Pro'}
+                  ? 'View usage'
+                  : 'View usage'}
                 <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
             </div>
@@ -2920,13 +2626,13 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                 <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
                   <HugeiconsIcon icon={Crown02Icon} size={16} color="currentColor" strokeWidth={2} />
                 </div>
-                <span>Unlimited with Pro</span>
+                <span>Account usage limit</span>
               </div>
               <a
-                href="/pricing"
+                href="/settings?tab=usage"
                 className="group inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
               >
-                Upgrade to Pro
+                View usage
                 <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
             </div>
@@ -2958,13 +2664,13 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
                 <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-primary">
                   <HugeiconsIcon icon={Crown02Icon} size={16} color="currentColor" strokeWidth={2} />
                 </div>
-                <span>Unlimited with Pro</span>
+                <span>Account usage limit</span>
               </div>
               <a
-                href="/pricing"
+                href="/settings?tab=usage"
                 className="group inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
               >
-                Explore pricing
+                View usage
                 <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </a>
             </div>
@@ -3026,23 +2732,6 @@ const GroupModeToggle: React.FC<GroupSelectorProps> = React.memo(
             setOpen(false);
             onShowUpgrade?.();
             return;
-          }
-
-          // Check if connectors group is selected but no connectors are connected
-          if (selectedGroup.id === 'connectors' && isAuthenticated && onOpenSettings && isProUser) {
-            try {
-              const { listUserConnectorsAction } = await import('@/app/actions');
-              const result = await listUserConnectorsAction();
-              if (result.success && result.connections.length === 0) {
-                // No connectors connected, open settings dialog to connectors tab
-                onOpenSettings('connectors');
-                setOpen(false);
-                return;
-              }
-            } catch (error) {
-              console.error('Error checking connectors:', error);
-              // If there's an error, still allow group selection
-            }
           }
 
           onGroupSelect(selectedGroup);
@@ -3386,8 +3075,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   isLimitBlocked = false,
   onOpenSettings,
   usageData,
-  selectedConnectors = [],
-  setSelectedConnectors,
   isTemporaryChatEnabled,
   isTemporaryChat,
   isTemporaryChatLocked,
@@ -3398,8 +3085,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
   onBeforeSubmit,
 }) => {
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
-  const canvasEnabled = process.env.NEXT_PUBLIC_CANVAS_ENABLED === 'true';
-  const mcpEnabled = process.env.NEXT_PUBLIC_MCP_ENABLED === 'true';
+  const canvasEnabled = false;
+  const mcpEnabled = TWIGA_FEATURES.apps;
   const formQueryClient = useQueryClient();
   const isMounted = useRef(true);
   const isCompositionActive = useRef(false);
@@ -3417,7 +3104,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const [isTypewriting, setIsTypewriting] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [showSignInDialog, setShowSignInDialog] = useState(false);
-  const [discountConfig, setDiscountConfig] = useState<DiscountConfig | null>(null);
 
   // Inline trigger popup state: '@' for sources, '/' for modes (extreme/connectors)
   const [triggerPopup, setTriggerPopup] = useState<'@' | '/' | null>(null);
@@ -3435,7 +3121,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [plusMenuCanScroll, setPlusMenuCanScroll] = useState(true);
   const plusMenuScrollRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
   const isMobile = useIsMobile();
   const haptics = useWebHaptics();
 
@@ -3643,71 +3328,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     };
   }, [cleanupMediaRecorder]);
 
-  // Fetch discount config when needed
-  const fetchDiscountConfigForm = useCallback(async () => {
-    if (discountConfig) return; // Already fetched
-
-    try {
-      const config = await getDiscountConfigAction({
-        isIndianUser: location.isIndia,
-      });
-      setDiscountConfig(config as DiscountConfig);
-    } catch (error) {
-      console.error('Failed to fetch discount config:', error);
-    }
-  }, [discountConfig, location.isIndia]);
-
-  // Calculate pricing with student discounts
-  const calculatePricing = useCallback(() => {
-    const defaultUSDPrice = PRICING.PRO_MONTHLY;
-    const defaultINRPrice = PRICING.PRO_MONTHLY_INR;
-
-    // Check if student discount is active
-    if (!discountConfig || !discountConfig.enabled || !discountConfig.isStudentDiscount) {
-      return {
-        usd: { originalPrice: defaultUSDPrice, finalPrice: defaultUSDPrice, hasDiscount: false },
-        inr: location.isIndia
-          ? { originalPrice: defaultINRPrice, finalPrice: defaultINRPrice, hasDiscount: false }
-          : null,
-      };
-    }
-
-    // USD pricing with student discount
-    const usdPricing = discountConfig.finalPrice
-      ? {
-          originalPrice: defaultUSDPrice,
-          finalPrice: discountConfig.finalPrice,
-          hasDiscount: true,
-        }
-      : {
-          originalPrice: defaultUSDPrice,
-          finalPrice: defaultUSDPrice,
-          hasDiscount: false,
-        };
-
-    // INR pricing with student discount - show if available in discount config
-    let inrPricing: { originalPrice: number; finalPrice: number; hasDiscount: boolean } | null = null;
-    if (discountConfig.inrPrice || location.isIndia) {
-      inrPricing = discountConfig.inrPrice
-        ? {
-            originalPrice: defaultINRPrice,
-            finalPrice: discountConfig.inrPrice,
-            hasDiscount: true,
-          }
-        : {
-            originalPrice: defaultINRPrice,
-            finalPrice: defaultINRPrice,
-            hasDiscount: false,
-          };
-    }
-
-    return {
-      usd: usdPricing,
-      inr: inrPricing,
-    };
-  }, [discountConfig, location.isIndia]);
-
-  const pricing = calculatePricing();
 
   // Control audio lines animation
   useEffect(() => {
@@ -3865,12 +3485,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
   }, [typewriterText]);
 
   const handleEnhance = useCallback(async () => {
-    if (!isProUser) {
-      haptics.trigger('warning');
-      fetchDiscountConfigForm();
-      setShowUpgradeDialog(true);
-      return;
-    }
     if (!input || input.trim().length === 0) {
       haptics.trigger('error');
       sileo.error({ title: 'Please enter a prompt to enhance' });
@@ -3909,13 +3523,10 @@ const FormComponent: React.FC<FormComponentProps> = ({
     input,
     haptics,
     isProcessing,
-    isProUser,
     setInput,
     inputRef,
     typewriterText,
     isEnhancing,
-    setShowUpgradeDialog,
-    fetchDiscountConfigForm,
   ]);
 
   const handleRecord = useCallback(async () => {
@@ -4353,21 +3964,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
     setTriggerFilter('');
   }, [setIsMultiAgentModeEnabled, isProUser, triggerPopup, inputRef, setInput, setShowUpgradeDialog, setSelectedGroup]);
 
-  const handleConnectorToggle = useCallback(
-    (provider: ConnectorProvider) => {
-      if (!setSelectedConnectors) return;
-
-      setSelectedConnectors((prev) => {
-        if (prev.includes(provider)) {
-          return prev.filter((p) => p !== provider);
-        } else {
-          return [...prev, provider];
-        }
-      });
-    },
-    [setSelectedConnectors],
-  );
-
   // Plus menu group select with pro/auth/connector guards
   const handlePlusMenuGroupSelect = useCallback(
     async (group: SearchGroup) => {
@@ -4377,20 +3973,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
         setPlusMenuOpen(false);
         setShowUpgradeDialog(true);
         return;
-      }
-
-      // Check if connectors group is selected but no connectors are connected
-      if (group.id === 'connectors' && user && onOpenSettings && isProUser) {
-        try {
-          const result = await listUserConnectorsAction();
-          if (result.success && result.connections.length === 0) {
-            onOpenSettings('connectors');
-            setPlusMenuOpen(false);
-            return;
-          }
-        } catch (error) {
-          console.error('Error checking connectors:', error);
-        }
       }
 
       haptics.trigger('selection');
@@ -4404,9 +3986,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
   const handlePlusMenuExtreme = useCallback(() => {
     if (isExtreme) {
       haptics.trigger('selection');
-      // Switch back to web mode
-      const webGroup = dynamicSearchGroups.find((g) => g.id === 'web');
-      if (webGroup) handleGroupSelect(webGroup);
+      // Switch back to Twiga's automatic mode
+      const autoGroup = dynamicSearchGroups.find((g) => g.id === 'auto');
+      if (autoGroup) handleGroupSelect(autoGroup);
     } else {
       if (!user) {
         haptics.trigger('warning');
@@ -4974,7 +4556,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       haptics.trigger('warning');
       sileo.error({
         title: 'Multi-agent research requires Pro',
-        description: 'Upgrade to Pro to use xAI multi-agent research',
+        description: 'View usage to use xAI multi-agent research',
         icon: <Lock className="h-4 w-4" />,
       });
       return;
@@ -4984,7 +4566,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
       haptics.trigger('warning');
       sileo.error({
         title: 'Daily search limit reached',
-        description: 'Upgrade to Pro for unlimited searches',
+        description: 'View usage for unlimited searches',
         icon: <Lock className="h-4 w-4" />,
       });
       return;
@@ -5120,6 +4702,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
   // ⌘U shortcut to upload files
   useEffect(() => {
+    if (!TWIGA_FEATURES.uploads) return;
     const handleFileShortcut = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'u') {
         event.preventDefault();
@@ -5334,12 +4917,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
               ? 'bg-primary/5 border border-ring/20 backdrop-blur-md! p-1 shadow-none!'
               : 'bg-transparent',
           )}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
+          onDragOver={TWIGA_FEATURES.uploads ? handleDragOver : undefined}
+          onDragLeave={TWIGA_FEATURES.uploads ? handleDragLeave : undefined}
+          onDrop={TWIGA_FEATURES.uploads ? handleDrop : undefined}
         >
           <AnimatePresence>
-            {isDragging && (
+            {TWIGA_FEATURES.uploads && isDragging ? (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -5356,35 +4939,39 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   </div>
                 </div>
               </motion.div>
-            )}
+            ) : null}
           </AnimatePresence>
 
-          <input
-            type="file"
-            className="hidden"
-            ref={fileInputRef}
-            multiple
-            onChange={handleFileChange}
-            accept={getAcceptedFileTypes(
-              selectedModel,
-              user?.isProUser ||
-                (subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active'),
-            )}
-            tabIndex={-1}
-          />
-          <input
-            type="file"
-            className="hidden"
-            ref={postSubmitFileInputRef}
-            multiple
-            onChange={handleFileChange}
-            accept={getAcceptedFileTypes(
-              selectedModel,
-              user?.isProUser ||
-                (subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active'),
-            )}
-            tabIndex={-1}
-          />
+          {TWIGA_FEATURES.uploads ? (
+            <>
+              <input
+                type="file"
+                className="hidden"
+                ref={fileInputRef}
+                multiple
+                onChange={handleFileChange}
+                accept={getAcceptedFileTypes(
+                  selectedModel,
+                  user?.isProUser ||
+                    (subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active'),
+                )}
+                tabIndex={-1}
+              />
+              <input
+                type="file"
+                className="hidden"
+                ref={postSubmitFileInputRef}
+                multiple
+                onChange={handleFileChange}
+                accept={getAcceptedFileTypes(
+                  selectedModel,
+                  user?.isProUser ||
+                    (subscriptionData?.hasSubscription && subscriptionData?.subscription?.status === 'active'),
+                )}
+                tabIndex={-1}
+              />
+            </>
+          ) : null}
 
           {(attachments.length > 0 || uploadQueue.length > 0) && (
             <div className="flex flex-row gap-2 overflow-x-auto py-2 max-h-28 z-10 px-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
@@ -5661,7 +5248,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                   onCompositionStart={() => (isCompositionActive.current = true)}
                   onCompositionEnd={() => (isCompositionActive.current = false)}
                   onKeyDown={isEnhancing || isTypewriting ? undefined : handleKeyDown}
-                  onPaste={isEnhancing || isTypewriting ? undefined : handlePaste}
+                  onPaste={isEnhancing || isTypewriting || !TWIGA_FEATURES.uploads ? undefined : handlePaste}
                 />
               )}
 
@@ -5669,7 +5256,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
               {!isRecording && !input && !isEnhancing && !isTypewriting && !hasInteracted && (
                 <div className="absolute top-0 left-0 right-0 pointer-events-none z-10 px-4 py-[14px]">
                   <TextRotate
-                    texts={['Ask anything...', 'Type @ for sources or / for modes']}
+                    texts={['Ask Twiga anything...', 'Search Tanzania and beyond...']}
                     rotationInterval={3000}
                     splitBy="words"
                     staggerDuration={0.04}
@@ -5713,50 +5300,24 @@ const FormComponent: React.FC<FormComponentProps> = ({
                           <DrawerTitle className="text-sm">Options</DrawerTitle>
                         </DrawerHeader>
                         <div className="px-1 pb-4 max-h-[calc(70vh-80px)] overflow-y-auto">
-                          <button
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
-                            onClick={() => {
-                              haptics.trigger('selection');
-                              setPlusMenuOpen(false);
-                              triggerFileInput();
-                            }}
-                          >
-                            <HugeiconsIcon
-                              icon={DocumentAttachmentIcon}
-                              size={16}
-                              color="currentColor"
-                              strokeWidth={1.5}
-                            />
-                            <span className="flex-1 text-[13px]">Upload files or images</span>
-                          </button>
-
-                          {user && setIsMultiAgentModeEnabled && (
+                          {TWIGA_FEATURES.uploads ? (
                             <button
                               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors"
                               onClick={() => {
                                 haptics.trigger('selection');
-                                if (!isProUser) {
-                                  setShowUpgradeDialog(true);
-                                  return;
-                                }
-                                const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
-                                setSelectedGroup(isTurningOff ? 'web' : 'multi-agent');
-                                setIsMultiAgentModeEnabled(!isTurningOff);
+                                setPlusMenuOpen(false);
+                                triggerFileInput();
                               }}
                             >
-                              <AgentNetworkIcon width={16} height={16} />
-                              <span className="flex-1 text-[13px]">Multi-agent mode</span>
-                              {isMultiAgentModeEnabled ? (
-                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                  Active
-                                </span>
-                              ) : !isProUser ? (
-                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                  Pro
-                                </span>
-                              ) : null}
+                              <HugeiconsIcon
+                                icon={DocumentAttachmentIcon}
+                                size={16}
+                                color="currentColor"
+                                strokeWidth={1.5}
+                              />
+                              <span className="flex-1 text-[13px]">Upload files or images</span>
                             </button>
-                          )}
+                          ) : null}
                           {user && mcpEnabled && (
                             <button
                               className={cn(
@@ -5775,28 +5336,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                   Active
                                 </span>
                               )}
-                              {!isProUser && (
-                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                  Pro
-                                </span>
-                              )}
                             </button>
                           )}
-                          <button
-                            className={cn(
-                              'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors',
-                              isExtreme && 'bg-accent',
-                            )}
-                            onClick={handlePlusMenuExtreme}
-                          >
-                            <HugeiconsIcon icon={AtomicPowerIcon} size={16} color="currentColor" strokeWidth={1.5} />
-                            <span className="flex-1 text-[13px]">Extreme agent</span>
-                            {isExtreme && (
-                              <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                Active
-                              </span>
-                            )}
-                          </button>
                           {/* {(input.length > 0 || isEnhancing || isTypewriting) && (
                             <button className={cn('w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left hover:bg-accent transition-colors', isEnhancementActive && 'bg-accent')} onClick={() => { if (!isEnhancing && !isTypewriting) handleEnhance(); setPlusMenuOpen(false); }} disabled={isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready' || isLimitBlocked}>
                               {isEnhancementActive ? <GripIcon ref={gripIconRef} size={16} className="text-primary" /> : <Wand2 className="size-4 text-muted-foreground" />}
@@ -5886,7 +5427,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             sideOffset={6}
                             className="border-0 backdrop-blur-xs py-2 px-3 shadow-none!"
                           >
-                            <span className="font-medium text-[11px]">Modes, uploads & more</span>
+                            <span className="font-medium text-[11px]">Chat options</span>
                           </TooltipContent>
                         )}
                       </Tooltip>
@@ -5896,76 +5437,38 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         side="bottom"
                         sideOffset={4}
                       >
-                        <Tooltip delayDuration={200}>
-                          <TooltipTrigger asChild>
-                            <button
-                              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors"
-                              onClick={() => {
-                                haptics.trigger('selection');
-                                setPlusMenuOpen(false);
-                                triggerFileInput();
-                              }}
-                            >
-                              <HugeiconsIcon
-                                icon={DocumentAttachmentIcon}
-                                size={16}
-                                color="currentColor"
-                                strokeWidth={1.5}
-                              />
-                              <span className="flex-1 text-[13px]">Upload files or images</span>
-                              <Kbd className="text-[9px] h-4 min-w-4 px-1">⌘U</Kbd>
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
-                            <span className="text-[10px] leading-snug">
-                              {hasVisionSupport(selectedModel)
-                                ? hasPdfSupport(selectedModel)
-                                  ? 'Images, PDFs, CSV, Excel, Word'
-                                  : 'Images, CSV, Excel, Word'
-                                : 'CSV, Excel, Word documents'}
-                            </span>
-                          </TooltipContent>
-                        </Tooltip>
-
-                        {user && setIsMultiAgentModeEnabled && (
+                        {TWIGA_FEATURES.uploads ? (
                           <Tooltip delayDuration={200}>
                             <TooltipTrigger asChild>
                               <button
-                                className={cn(
-                                  'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
-                                  isMultiAgentModeEnabled && 'bg-accent',
-                                )}
+                                className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors"
                                 onClick={() => {
                                   haptics.trigger('selection');
-                                  if (!isProUser) {
-                                    setShowUpgradeDialog(true);
-                                    return;
-                                  }
-                                  const isTurningOff = selectedGroup === 'multi-agent' || isMultiAgentModeEnabled;
-                                  setSelectedGroup(isTurningOff ? 'web' : 'multi-agent');
-                                  setIsMultiAgentModeEnabled(!isTurningOff);
+                                  setPlusMenuOpen(false);
+                                  triggerFileInput();
                                 }}
                               >
-                                <AgentNetworkIcon width={16} height={16} />
-                                <span className="flex-1 text-[13px]">Multi-agent mode</span>
-                                {isMultiAgentModeEnabled ? (
-                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                    Active
-                                  </span>
-                                ) : !isProUser ? (
-                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                    Pro
-                                  </span>
-                                ) : null}
+                                <HugeiconsIcon
+                                  icon={DocumentAttachmentIcon}
+                                  size={16}
+                                  color="currentColor"
+                                  strokeWidth={1.5}
+                                />
+                                <span className="flex-1 text-[13px]">Upload files or images</span>
+                                <Kbd className="text-[9px] h-4 min-w-4 px-1">⌘U</Kbd>
                               </button>
                             </TooltipTrigger>
                             <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
                               <span className="text-[10px] leading-snug">
-                                Use xAI multi-agent mode with web and X tool calls plus sources
+                                {hasVisionSupport(selectedModel)
+                                  ? hasPdfSupport(selectedModel)
+                                    ? 'Images, PDFs, CSV, Excel, Word'
+                                    : 'Images, CSV, Excel, Word'
+                                  : 'CSV, Excel, Word documents'}
                               </span>
                             </TooltipContent>
                           </Tooltip>
-                        )}
+                        ) : null}
                         {user && mcpEnabled && (
                           <Tooltip delayDuration={200}>
                             <TooltipTrigger asChild>
@@ -5986,11 +5489,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                     Active
                                   </span>
                                 )}
-                                {!isProUser && selectedGroup !== 'mcp' && (
-                                  <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                    Pro
-                                  </span>
-                                )}
                               </button>
                             </TooltipTrigger>
                             <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
@@ -5998,30 +5496,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             </TooltipContent>
                           </Tooltip>
                         )}
-                        <Tooltip delayDuration={200}>
-                          <TooltipTrigger asChild>
-                            <button
-                              className={cn(
-                                'w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors',
-                                isExtreme && 'bg-accent',
-                              )}
-                              onClick={handlePlusMenuExtreme}
-                            >
-                              <HugeiconsIcon icon={AtomicPowerIcon} size={16} color="currentColor" strokeWidth={1.5} />
-                              <span className="flex-1 text-[13px]">Extreme agent</span>
-                              {isExtreme && (
-                                <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                                  Active
-                                </span>
-                              )}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right" sideOffset={8} className="max-w-48 py-1.5 px-2.5">
-                            <span className="text-[10px] leading-snug">
-                              Searches multiple sources for in-depth analysis
-                            </span>
-                          </TooltipContent>
-                        </Tooltip>
                         {/* {(input.length > 0 || isEnhancing || isTypewriting) && (
                           <button className={cn('w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left hover:bg-accent transition-colors', isEnhancementActive && 'bg-accent')} onClick={() => { if (!isEnhancing && !isTypewriting) handleEnhance(); setPlusMenuOpen(false); }} disabled={isEnhancing || isTypewriting || uploadQueue.length > 0 || status !== 'ready' || isLimitBlocked}>
                             {isEnhancementActive ? <GripIcon ref={gripIconRef} size={16} className="text-primary" /> : <Wand2 className="size-4 text-muted-foreground" />}
@@ -6128,7 +5602,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     const activeGroup = dynamicSearchGroups.find((g) => g.id === selectedGroup);
                     if (
                       !activeGroup ||
-                      selectedGroup === 'web' ||
+                      selectedGroup === 'auto' ||
                       selectedGroup === 'connectors' ||
                       selectedGroup === 'mcp' ||
                       selectedGroup === 'multi-agent'
@@ -6155,7 +5629,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     haptics.trigger('selection');
-                                    setSelectedGroup('web');
+                                    setSelectedGroup('auto');
                                     setIsMultiAgentModeEnabled?.(false);
                                   }}
                                   aria-label="Clear multi-agent mode"
@@ -6202,8 +5676,8 @@ const FormComponent: React.FC<FormComponentProps> = ({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   haptics.trigger('selection');
-                                  const webGroup = dynamicSearchGroups.find((g) => g.id === 'web');
-                                  if (webGroup) handleGroupSelect(webGroup);
+                                  const autoGroup = dynamicSearchGroups.find((g) => g.id === 'auto');
+                                  if (autoGroup) handleGroupSelect(autoGroup);
                                 }}
                                 aria-label="Clear mode"
                               >
@@ -6227,18 +5701,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     );
                   })()}
 
-                  {/* Inline connector selector when connectors mode is active */}
-                  {selectedGroup === 'connectors' && setSelectedConnectors && (
-                    <ConnectorSelector
-                      selectedConnectors={selectedConnectors}
-                      onConnectorToggle={handleConnectorToggle}
-                      user={user}
-                      isProUser={isProUser}
-                    />
-                  )}
 
                   {/* Inline MCP server selector when MCP mode is active */}
-                  {selectedGroup === 'mcp' && <McpServerSelector user={user} isProUser={isProUser} />}
+                  {selectedGroup === 'mcp' && <McpServerSelector user={user} />}
                 </div>
 
                 {/* Right: Enhance, Model selector, voice/send */}
@@ -6281,21 +5746,23 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     </TooltipContent>
                   </Tooltip>
 
-                  <ModelSwitcher
-                    selectedModel={selectedModel}
-                    setSelectedModel={setSelectedModel}
-                    attachments={attachments}
-                    messages={messages}
-                    status={status}
-                    onModelSelect={(model) => {
-                      setSelectedModel(model.value);
-                    }}
-                    subscriptionData={subscriptionData}
-                    user={user}
-                    selectedGroup={selectedGroup}
-                    autoRoutedModel={autoRoutedModel}
-                    inputRef={inputRef}
-                  />
+                  {models.length > 1 ? (
+                    <ModelSwitcher
+                      selectedModel={selectedModel}
+                      setSelectedModel={setSelectedModel}
+                      attachments={attachments}
+                      messages={messages}
+                      status={status}
+                      onModelSelect={(model) => {
+                        setSelectedModel(model.value);
+                      }}
+                      subscriptionData={subscriptionData}
+                      user={user}
+                      selectedGroup={selectedGroup}
+                      autoRoutedModel={autoRoutedModel}
+                      inputRef={inputRef}
+                    />
+                  ) : null}
 
                   {/* Action button: Stop / Voice / Send */}
                   {isProcessing ? (
@@ -6323,7 +5790,11 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         <span className="font-medium text-[11px]">Stop Generation</span>
                       </TooltipContent>
                     </Tooltip>
-                  ) : input.length === 0 && attachments.length === 0 && !isEnhancing && !isTypewriting ? (
+                  ) : TWIGA_FEATURES.voiceInput &&
+                    input.length === 0 &&
+                    attachments.length === 0 &&
+                    !isEnhancing &&
+                    !isTypewriting ? (
                     <Tooltip delayDuration={300}>
                       <TooltipTrigger asChild>
                         <Button
@@ -6499,120 +5970,6 @@ const FormComponent: React.FC<FormComponentProps> = ({
             </p>
           </motion.div>
         ) : null}
-
-        {/* Pro Upgrade Dialog */}
-        <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
-          <DialogContent className="p-0 overflow-hidden gap-0 bg-background sm:max-w-[450px]" showCloseButton={false}>
-            <DialogHeader className="p-2">
-              <div className="relative w-full p-6 rounded-md text-white overflow-hidden">
-                <div className="absolute inset-0 bg-[url('/placeholder.png')] bg-cover bg-center rounded-sm">
-                  <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/30 to-black/10"></div>
-                </div>
-                <div className="relative z-10 flex flex-col gap-4">
-                  <DialogTitle className="flex items-center gap-3 text-white">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <span className="text-xl sm:text-2xl font-bold">Unlock</span>
-                      <ProBadge className="text-white! bg-white/20! ring-white/30! font-extralight! mb-0.5!" />
-                    </div>
-                  </DialogTitle>
-                  <DialogDescription className="text-white/90">
-                    {discountConfig?.enabled && discountConfig?.isStudentDiscount && (
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm border border-white/20 text-white text-sm font-medium">
-                          🎓 Student Discount
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-2 mb-2">
-                      {pricing.inr ? (
-                        // Show INR pricing when available
-                        pricing.inr.hasDiscount ? (
-                          <>
-                            <span className="text-lg text-white/60 line-through">₹{pricing.inr.originalPrice}</span>
-                            <span className="text-2xl font-bold">₹{pricing.inr.finalPrice}</span>
-                          </>
-                        ) : (
-                          <span className="text-2xl font-bold">₹{pricing.inr.finalPrice}</span>
-                        )
-                      ) : // Show USD pricing for non-Indian users
-                      pricing.usd.hasDiscount ? (
-                        <>
-                          <span className="text-lg text-white/60 line-through">${pricing.usd.originalPrice}</span>
-                          <span className="text-2xl font-bold">${pricing.usd.finalPrice.toFixed(2)}</span>
-                        </>
-                      ) : (
-                        <span className="text-2xl font-bold">${pricing.usd.finalPrice}</span>
-                      )}
-                      <span className="text-sm text-white/80">/month</span>
-                    </div>
-                    <p className="text-sm text-white/80 text-left">
-                      Get enhanced capabilities including prompt enhancement and unlimited features
-                    </p>
-                  </DialogDescription>
-                  <Button
-                    onClick={() => {
-                      window.location.href = '/pricing';
-                    }}
-                    className="backdrop-blur-md bg-white/90 border border-white/20 text-black hover:bg-white w-full font-medium mt-3"
-                  >
-                    Upgrade to Pro
-                  </Button>
-                </div>
-              </div>
-            </DialogHeader>
-
-            <div className="px-6 py-6 flex flex-col gap-4">
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary shrink-0" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Prompt Enhancement</p>
-                  <p className="text-xs text-muted-foreground">AI-powered prompt optimization</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary shrink-0" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Unlimited Searches</p>
-                  <p className="text-xs text-muted-foreground">No daily limits on your research</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary shrink-0" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Advanced AI Models</p>
-                  <p className="text-xs text-muted-foreground">
-                    Access to all AI models including Grok 4, Claude and GPT-5
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <CheckIcon className="size-4 text-primary shrink-0" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Twiga AI Lookout</p>
-                  <p className="text-xs text-muted-foreground">Automated search monitoring on your schedule</p>
-                </div>
-              </div>
-
-              <div className="flex gap-2 w-full items-center mt-4">
-                <div className="flex-1 border-b border-foreground/10" />
-                <p className="text-xs text-foreground/50">Cancel anytime • Secure payment</p>
-                <div className="flex-1 border-b border-foreground/10" />
-              </div>
-
-              <Button
-                variant="ghost"
-                onClick={() => setShowUpgradeDialog(false)}
-                className="w-full text-muted-foreground hover:text-foreground mt-2"
-                size="sm"
-              >
-                Not now
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Sign In Dialog (Voice) */}
         <Dialog open={showSignInDialog} onOpenChange={setShowSignInDialog}>

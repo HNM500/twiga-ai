@@ -83,6 +83,16 @@ export default function PrivacyPage() {
                 used and error diagnostics. Twiga&apos;s structured operational events are designed not to include full
                 prompt bodies.
               </li>
+              <li>
+                <strong>Answer feedback:</strong> whether an answer was helpful, any issue categories you select, an
+                optional comment, and the answer, chat and search-mode identifiers needed to investigate it. Do not
+                include passwords, account numbers or other sensitive information in a feedback comment.
+              </li>
+              <li>
+                <strong>Twiga Apps data:</strong> if you enable a connected app, we store its server configuration and
+                encrypted credentials or OAuth tokens. Requests sent through that app can include your prompt and the
+                minimum context needed to carry out the request.
+              </li>
             </ul>
 
             <h2 id="use">3. Why we use information</h2>
@@ -90,7 +100,9 @@ export default function PrivacyPage() {
             <ul>
               <li>provide chat, web search, citations and saved history where available;</li>
               <li>authenticate users, preserve sessions and enforce usage limits;</li>
+              <li>connect and operate user-selected Twiga Apps when that beta feature is enabled;</li>
               <li>secure, debug and monitor the service;</li>
+              <li>review answer feedback and improve quality, citations and safety;</li>
               <li>measure reliability, model usage and operating cost; and</li>
               <li>comply with applicable law and respond to valid legal requests.</li>
             </ul>
@@ -131,6 +143,11 @@ export default function PrivacyPage() {
             <p>
               These services may process information outside Tanzania. We will update this notice before adding new
               production providers or enabling payments, business claims or directory ingestion involving personal data.
+            </p>
+            <p>
+              Connected apps are independent third-party services chosen by the user. Their operators receive requests
+              and data sent through their tools and apply their own privacy terms. Twiga Apps is disabled by default and
+              should not be used with sensitive information unless you trust the app operator.
             </p>
 
             <h2 id="retention">5. Storage and retention</h2>

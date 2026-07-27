@@ -69,6 +69,11 @@ export default function TermsPage() {
               trusted Tanzanian business directory, paid verification, payments and other planned products are not part
               of the current service unless we clearly launch them under updated terms.
             </p>
+            <p>
+              Twiga Apps may be offered as an opt-in beta. Connected tools are operated by third parties and may read or
+              change data in those services. Review each tool request, only connect operators you trust, and do not ask
+              Twiga to take a consequential external action unless you understand and intend that action.
+            </p>
 
             <h2 id="accounts">3. Guest use and accounts</h2>
             <p>

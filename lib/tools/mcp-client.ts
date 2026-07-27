@@ -3,13 +3,19 @@ import 'server-only';
 import { createMCPClient, ElicitationRequestSchema, type MCPClient } from '@ai-sdk/mcp';
 import { getUserMcpServersByUserId } from '@/lib/db/queries';
 import { resolveMcpAuthHeaders } from '@/lib/mcp/auth-headers';
-import { validateMcpServerUrl } from '@/lib/mcp/server-config';
+import { validateResolvedMcpServerUrl } from '@/lib/mcp/server-config';
 import type { UIMessageStreamWriter } from 'ai';
 import type { ChatMessage } from '@/lib/types';
 import { randomUUID } from 'node:crypto';
 import { all } from 'better-all';
 import { getBetterAllOptions } from '@/lib/better-all';
-import { Redis } from '@upstash/redis';
+import {
+  clearMcpElicitation,
+  clearPendingMcpElicitation,
+  consumeMcpElicitationResponse,
+  markMcpElicitationPending,
+  type McpElicitationResult,
+} from '@/lib/mcp/elicitation-store';
 
 const DEFAULT_MCP_SERVER_LIMIT = Number.MAX_SAFE_INTEGER;
 const MCP_TOOL_LOAD_TIMEOUT_MS = 20000;
@@ -18,19 +24,7 @@ const ELICITATION_TIMEOUT_MS = 5 * 60 * 1000;
 // Module-scope map of pending elicitation resolvers.
 // Lives as long as the server process — works for both long-running and
 // per-request (same process) serverless invocations.
-type ElicitResult = { action: 'accept' | 'decline' | 'cancel'; content?: Record<string, unknown> };
-export const pendingElicitations = new Map<string, (result: ElicitResult) => void>();
-const redis = Redis.fromEnv();
-const ELICITATION_RESPONSE_KEY_PREFIX = 'mcp:elicitation:response:';
-const ELICITATION_PENDING_KEY_PREFIX = 'mcp:elicitation:pending:';
-
-function getElicitationResponseKey(elicitationId: string) {
-  return `${ELICITATION_RESPONSE_KEY_PREFIX}${elicitationId}`;
-}
-
-function getElicitationPendingKey(elicitationId: string) {
-  return `${ELICITATION_PENDING_KEY_PREFIX}${elicitationId}`;
-}
+export const pendingElicitations = new Map<string, (result: McpElicitationResult) => void>();
 
 function getToolUiResourceUri(toolDef: any): string | null {
   const meta = toolDef?._meta;
@@ -96,18 +90,17 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: s
   }
 }
 
-function waitForElicitation(elicitationId: string): Promise<ElicitResult> {
-  return new Promise<ElicitResult>((resolve) => {
-    const responseKey = getElicitationResponseKey(elicitationId);
-    const pendingKey = getElicitationPendingKey(elicitationId);
+function waitForElicitation(elicitationId: string): Promise<McpElicitationResult> {
+  return new Promise<McpElicitationResult>((resolve) => {
     let interval: ReturnType<typeof setInterval> | null = null;
     let settled = false;
 
-    const settle = (result: ElicitResult) => {
+    const settle = (result: McpElicitationResult) => {
       if (settled) return;
       settled = true;
       if (interval) clearInterval(interval);
       pendingElicitations.delete(elicitationId);
+      void clearPendingMcpElicitation(elicitationId).catch(() => undefined);
       resolve(result);
     };
 
@@ -115,21 +108,21 @@ function waitForElicitation(elicitationId: string): Promise<ElicitResult> {
       settle(result);
     });
 
-    // Mark as pending so responders can validate/diagnose lifecycle.
-    void redis.set(pendingKey, '1', { ex: Math.ceil(ELICITATION_TIMEOUT_MS / 1000) + 60 });
+    void markMcpElicitationPending(elicitationId).catch(() => undefined);
 
     const pollRedis = async () => {
       try {
-        const persisted = await redis.get<ElicitResult>(responseKey);
-        if (!persisted || typeof persisted !== 'object') return;
-        await redis.del(responseKey);
+        const persisted = await consumeMcpElicitationResponse(elicitationId);
+        if (!persisted) return;
         settle(persisted);
       } catch {
         // Ignore transient Redis issues; in-process resolver may still complete.
       }
     };
 
-    interval = setInterval(() => { void pollRedis(); }, 500);
+    interval = setInterval(() => {
+      void pollRedis();
+    }, 500);
     void pollRedis();
   });
 }
@@ -160,7 +153,7 @@ export async function resolveUserMcpTools({
 
   for (const server of selectedServers) {
     try {
-      validateMcpServerUrl(server.url);
+      await validateResolvedMcpServerUrl(server.url);
 
       const client = await createMCPClient({
         transport: {
@@ -202,7 +195,7 @@ export async function resolveUserMcpTools({
             },
           });
 
-          let result: ElicitResult;
+          let result: McpElicitationResult;
           try {
             result = await withTimeout(
               waitForElicitation(elicitationId),
@@ -213,9 +206,7 @@ export async function resolveUserMcpTools({
             result = { action: 'cancel' };
           } finally {
             pendingElicitations.delete(elicitationId);
-            const responseKey = getElicitationResponseKey(elicitationId);
-            const pendingKey = getElicitationPendingKey(elicitationId);
-            void redis.del(responseKey, pendingKey);
+            void clearMcpElicitation(elicitationId).catch(() => undefined);
             dataStream.write({
               type: 'data-mcp_elicitation_done',
               data: { elicitationId },
