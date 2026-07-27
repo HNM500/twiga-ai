@@ -121,14 +121,11 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>OpenRouter:</strong> receives prompts and related context and routes them to an upstream AI
-                provider. The MVP currently uses a Google model through OpenRouter. See{' '}
+                provider. The MVP uses open-weight models through OpenRouter, and the serving provider may vary based
+                on availability and routing. See{' '}
                 <a href="https://openrouter.ai/privacy" target="_blank" rel="noreferrer">
                   OpenRouter&apos;s privacy policy
                 </a>{' '}
-                and{' '}
-                <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
-                  Google&apos;s privacy policy
-                </a>
                 .
               </li>
               <li>

@@ -12,6 +12,13 @@ export interface CompanionRouteDecision {
     | 'conversation-or-creation';
 }
 
+export type CompanionModelTier = 'standard' | 'reasoning';
+
+export interface CompanionModelDecision {
+  tier: CompanionModelTier;
+  reason: 'explicit-deep-reasoning' | 'comparative-decision' | 'complex-planning' | 'standard';
+}
+
 const NO_WEB_PATTERN =
   /\b(?:do not|don't|dont|without|no)\s+(?:browse|browsing|search|searching|web|internet)\b|\b(?:usitafute|bila kutafuta|bila intaneti)\b/i;
 
@@ -32,6 +39,15 @@ const TRAVEL_RESEARCH_PATTERN =
 
 const HIGH_STAKES_CURRENT_PATTERN =
   /\b(?:law|legal|regulation|licen[cs]e|permit|visa|passport|tax|tra|brela|immigration|medicine|medical|symptom|treatment|loan|interest rate|investment|insurance|government requirement|eligibility)\b|\b(?:sheria|kanuni|leseni|kibali|viza|pasipoti|kodi|dawa|matibabu|dalili|mkopo|riba|uwekezaji|bima|serikali)\b/i;
+
+const EXPLICIT_DEEP_REASONING_PATTERN =
+  /\b(?:think deeply|reason carefully|deep analysis|analys[ei] in depth|thorough analysis|work through the reasoning|chambua kwa kina|fikiria kwa kina|toa uchambuzi wa kina)\b/i;
+
+const COMPARATIVE_DECISION_PATTERN =
+  /\b(?:compare|evaluate|assess|weigh|contrast|linganisha|tathmini|pima)\b[\s\S]{0,160}\b(?:trade[- ]?offs?|pros and cons|advantages and disadvantages|options|alternatives|strategy|decision|faida na hasara|chaguo|mikakati?|uamuzi)\b|\b(?:trade[- ]?offs?|pros and cons|faida na hasara)\b[\s\S]{0,160}\b(?:compare|evaluate|assess|weigh|linganisha|tathmini|pima)\b/i;
+
+const COMPLEX_PLANNING_PATTERN =
+  /\b(?:business plan|financial model|go-to-market|market-entry strategy|decision framework|risk analysis|root cause analysis|scenario analysis|mpango wa biashara|mkakati wa kuingia sokoni|mfumo wa maamuzi|uchambuzi wa hatari|uchambuzi wa chanzo)\b/i;
 
 /**
  * Selects whether Twiga should answer directly or use web search.
@@ -67,6 +83,29 @@ export function routeCompanionRequest(query: string): CompanionRouteDecision {
   }
 
   return { mode: 'chat', reason: 'conversation-or-creation' };
+}
+
+/**
+ * Escalates only clearly complex requests to Twiga's slower reasoning model.
+ * Ordinary conversation, search synthesis and simple planning stay on the
+ * value model so latency and cost remain predictable.
+ */
+export function routeCompanionModel(query: string): CompanionModelDecision {
+  const normalized = query.trim();
+
+  if (EXPLICIT_DEEP_REASONING_PATTERN.test(normalized)) {
+    return { tier: 'reasoning', reason: 'explicit-deep-reasoning' };
+  }
+
+  if (COMPARATIVE_DECISION_PATTERN.test(normalized)) {
+    return { tier: 'reasoning', reason: 'comparative-decision' };
+  }
+
+  if (COMPLEX_PLANNING_PATTERN.test(normalized)) {
+    return { tier: 'reasoning', reason: 'complex-planning' };
+  }
+
+  return { tier: 'standard', reason: 'standard' };
 }
 
 export function getLatestUserText(messages: unknown): string {

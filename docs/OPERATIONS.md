@@ -33,6 +33,15 @@ OpenRouter usage accounting is enabled for every configured Twiga model alias. A
 
 Search Railway logs for `ai_generation_completed` and `ai_generation_aborted`. Costs are provider-reported operational figures, not customer billing records.
 
+The current routing policy is:
+
+- `OPENROUTER_SEARCH_MODEL`: normal chat and cited-search synthesis; defaults to DeepSeek V4 Flash
+- `OPENROUTER_DEFAULT_MODEL`: titles, follow-ups and prompt enhancement; defaults to GPT-OSS 20B
+- `OPENROUTER_REASONING_MODEL`: explicit deep analysis, comparative decisions and complex planning; defaults to GLM 5.2
+- `OPENROUTER_ROUTER_MODEL`: retained compatibility slot for Scira's dormant LLM router; the active chat/web router is deterministic
+
+Monitor model-tier decisions in the search request log and confirm the final upstream model in `ai_generation_completed`. OpenRouter provider availability, price and latency vary, so compare p50/p95 latency and cost by provider model rather than relying only on the configured alias.
+
 ## Release verification
 
 Each deployment sets:

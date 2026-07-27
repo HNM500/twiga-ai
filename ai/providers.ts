@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { customProvider } from 'ai';
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createOpenRouter, type OpenRouterChatSettings } from '@openrouter/ai-sdk-provider';
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -12,15 +12,50 @@ const openrouter = createOpenRouter({
   },
 });
 
-const defaultModel = process.env.OPENROUTER_DEFAULT_MODEL || 'google/gemini-2.5-flash-lite';
-const searchModel = process.env.OPENROUTER_SEARCH_MODEL || defaultModel;
+const defaultModel = process.env.OPENROUTER_DEFAULT_MODEL || 'openai/gpt-oss-20b';
+const searchModel = process.env.OPENROUTER_SEARCH_MODEL || 'deepseek/deepseek-v4-flash';
 const routerModel = process.env.OPENROUTER_ROUTER_MODEL || defaultModel;
-const meteredModel = (modelId: string) =>
+const reasoningModel = process.env.OPENROUTER_REASONING_MODEL || 'z-ai/glm-5.2';
+const meteredModel = (modelId: string, settings: OpenRouterChatSettings = {}) =>
   openrouter(modelId, {
+    ...settings,
     usage: {
       include: true,
     },
   });
+
+const utilityModel = meteredModel(defaultModel, {
+  reasoning: {
+    effort: 'low',
+    exclude: true,
+  },
+  provider: {
+    sort: 'price',
+    allow_fallbacks: true,
+  },
+});
+
+const companionModel = meteredModel(searchModel, {
+  reasoning: {
+    max_tokens: 512,
+    exclude: true,
+  },
+  provider: {
+    sort: 'latency',
+    allow_fallbacks: true,
+  },
+});
+
+const hardReasoningModel = meteredModel(reasoningModel, {
+  reasoning: {
+    max_tokens: 1200,
+    exclude: true,
+  },
+  provider: {
+    sort: 'latency',
+    allow_fallbacks: true,
+  },
+});
 
 /**
  * Twiga keeps Scira's stable internal model IDs so upstream chat flows remain
@@ -28,16 +63,20 @@ const meteredModel = (modelId: string) =>
  */
 export const scira = customProvider({
   languageModels: {
-    'scira-default': meteredModel(searchModel),
-    'scira-auto': meteredModel(searchModel),
-    'scira-arch-router': meteredModel(routerModel),
-    'scira-name': meteredModel(defaultModel),
-    'scira-enhance': meteredModel(defaultModel),
-    'scira-follow-up': meteredModel(defaultModel),
+    'scira-default': companionModel,
+    'scira-reasoning': hardReasoningModel,
+    'scira-auto': companionModel,
+    'scira-arch-router': meteredModel(routerModel, {
+      reasoning: { effort: 'low', exclude: true },
+      provider: { sort: 'price', allow_fallbacks: true },
+    }),
+    'scira-name': utilityModel,
+    'scira-enhance': utilityModel,
+    'scira-follow-up': utilityModel,
     // Dormant tools can still resolve during the transition, but are not shown
     // or accepted by Twiga's MVP search endpoint.
-    'scira-ext-1': meteredModel(searchModel),
-    'scira-gemini-3-flash': meteredModel(defaultModel),
+    'scira-ext-1': companionModel,
+    'scira-gemini-3-flash': utilityModel,
   },
   fallbackProvider: openrouter,
 });
