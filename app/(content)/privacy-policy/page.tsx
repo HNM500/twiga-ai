@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft, ArrowUpRight, Shield } from 'lucide-react';
 
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { TwigaLogo } from '@/components/logos/twiga-logo';
 import { SOURCE_URL, SUPPORT_EMAIL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
@@ -28,8 +28,7 @@ export default function PrivacyPage() {
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <SciraLogo className="size-5" />
-            <span className="font-be-vietnam-pro text-lg font-light tracking-tighter">Twiga AI</span>
+            <TwigaLogo className="h-5 w-auto" />
           </Link>
           <Link href="/about" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="size-3.5" /> Back
@@ -121,8 +120,8 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>OpenRouter:</strong> receives prompts and related context and routes them to an upstream AI
-                provider. The MVP uses open-weight models through OpenRouter, and the serving provider may vary based
-                on availability and routing. See{' '}
+                provider. The MVP uses open-weight models through OpenRouter, and the serving provider may vary based on
+                availability and routing. See{' '}
                 <a href="https://openrouter.ai/privacy" target="_blank" rel="noreferrer">
                   OpenRouter&apos;s privacy policy
                 </a>{' '}

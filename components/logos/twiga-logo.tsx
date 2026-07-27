@@ -1,0 +1,55 @@
+import type { SVGProps } from 'react';
+
+export const TWIGA_MARK_PATH =
+  'M90 16C82 16 76 22 76 30V62C76 67 72 71 67 71H40C30 71 23 78 23 88V105C23 115 30 122 40 122H78V181C78 221 96 240 138 240H191C201 240 208 233 208 223V207C208 197 201 190 191 190H148C137 190 132 185 132 174V122H207C217 122 224 115 224 105V88C224 78 217 71 207 71H142C136 71 132 67 132 61V30C132 22 126 16 118 16H90Z M89 240C89 210 90 179 94 151C98 118 101 91 111 73C109 66 110 58 115 54C118 52 120 55 119 59L118 65C121 64 124 63 127 63C126 58 128 53 132 52C136 52 137 56 135 60L133 66C138 66 142 67 146 69L151 66C156 65 158 69 154 73L151 76C158 79 164 83 168 86L188 97C194 101 194 106 190 110C183 116 169 117 156 113L143 109C134 106 126 109 122 118C114 138 114 170 109 194C106 214 101 230 97 240H89Z';
+
+type TwigaMarkProps = SVGProps<SVGSVGElement> & {
+  title?: string;
+};
+
+export function TwigaMark({ title, className, ...props }: TwigaMarkProps) {
+  return (
+    <svg
+      viewBox="0 0 256 256"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      role={title ? 'img' : undefined}
+      aria-hidden={title ? undefined : true}
+      {...props}
+    >
+      {title ? <title>{title}</title> : null}
+      <path d={TWIGA_MARK_PATH} fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+export function TwigaLogo({ title = 'Twiga', className, ...props }: TwigaMarkProps) {
+  return (
+    <svg
+      viewBox="0 0 850 256"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      role="img"
+      aria-label={title}
+      {...props}
+    >
+      <path d={TWIGA_MARK_PATH} fill="currentColor" fillRule="evenodd" clipRule="evenodd" />
+      <g transform="translate(268 190) scale(.22 -.22)" fill="currentColor">
+        <path d="M274 0Q202 0 167.5 33Q133 66 133 136L133 456L55 456L55 530L133 530L133 654L217 654L217 530L358 530L358 456L217 456L217 138Q217 102 233 88Q249 74 282 74L358 74L358 0Z" />
+        <path
+          transform="translate(382)"
+          d="M186 0L22 530L114 530L238 88L364 530L454 530L580 88L705 530L797 530L633 0L527 0L409 403L291 0Z"
+        />
+        <path transform="translate(1191)" d="M80 0L80 530L164 530L164 0ZM78 613L78 711L166 711L166 613Z" />
+        <path
+          transform="translate(1425)"
+          d="M281 -162Q196 -162 136 -120Q76 -78 59 -8L147 -2Q159 -39 189.5 -60.5Q220 -82 281 -82Q353 -82 391.5 -53Q430 -24 430 34L430 120Q411 78 369 53Q327 28 275 28Q208 28 155.5 61Q103 94 73.5 152Q44 210 44 285Q44 361 73 418.5Q102 476 153.5 509Q205 542 271 542Q327 542 371.5 516Q416 490 434 446L434 530L514 530L514 36Q514 -57 452.5 -109.5Q391 -162 281 -162ZM279 108Q347 108 388 155.5Q429 203 430 285Q432 367 390 414.5Q348 462 279 462Q209 462 170.5 414.5Q132 367 132 285Q132 203 171.5 155.5Q211 108 279 108Z"
+        />
+        <path
+          transform="translate(2019)"
+          d="M223 -12Q141 -12 92.5 26Q44 64 44 132Q44 200 84 239Q124 278 211 294L399 329Q399 462 273 462Q218 462 186 437.5Q154 413 142 367L53 374Q68 449 125.5 495.5Q183 542 273 542Q375 542 429 484.5Q483 427 483 326L483 107Q483 74 511 74L532 74L532 0Q520 -2 500 -2Q454 -2 430.5 16.5Q407 35 401 77L400 82Q380 41 331 14.5Q282 -12 223 -12ZM231 62Q311 62 355 107Q399 152 399 218L399 256L227 224Q173 214 152.5 193.5Q132 173 132 140Q132 103 158.5 82.5Q185 62 231 62Z"
+        />
+      </g>
+    </svg>
+  );
+}

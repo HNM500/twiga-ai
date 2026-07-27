@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Search, ShieldCheck, MapPin } from 'lucide-react';
 
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { TwigaLogo } from '@/components/logos/twiga-logo';
 
 const features = [
   {
@@ -30,8 +30,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         <div className="relative flex w-full flex-col justify-between px-12 py-10 xl:px-20">
           <Link href="/" className="inline-flex items-center gap-3 self-start">
-            <SciraLogo className="size-9" />
-            <span className="font-be-vietnam-pro text-3xl font-light tracking-tighter">Twiga AI</span>
+            <TwigaLogo className="h-9 w-auto" />
           </Link>
 
           <div className="max-w-md">
@@ -42,8 +41,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               Ask clearly. Search widely. Verify every answer.
             </h1>
             <p className="mt-5 max-w-sm text-sm leading-relaxed text-muted-foreground">
-              Twiga AI combines straightforward conversation with cited web search, and will grow into a trusted layer
-              for Tanzanian knowledge and business discovery.
+              Twiga combines straightforward conversation with cited web search, and will grow into a trusted layer for
+              Tanzanian knowledge and business discovery.
             </p>
 
             <div className="mt-10 space-y-3">
@@ -66,8 +65,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <main className="flex flex-1 flex-col bg-background lg:w-[55%] xl:w-1/2">
         <header className="flex h-16 items-center border-b border-border/50 px-6 lg:hidden">
           <Link href="/" className="flex items-center gap-2.5">
-            <SciraLogo className="size-6" />
-            <span className="font-be-vietnam-pro text-2xl font-light tracking-tighter">Twiga AI</span>
+            <TwigaLogo className="h-7 w-auto" />
           </Link>
         </header>
 

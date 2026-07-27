@@ -20,7 +20,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { TwigaMark } from '@/components/logos/twiga-logo';
 import { SarvamLogo } from '@/components/logos/sarvam-logo';
 import type { SVGProps } from 'react';
 
@@ -51,7 +51,7 @@ const ProviderIcon = ({
 
   switch (provider) {
     case 'scira':
-      return <SciraLogo width={size} height={size} className={className} />;
+      return <TwigaMark width={size} height={size} className={className} />;
     case 'sarvam':
       return <SarvamLogo width={size} height={size} className={className} />;
     case 'xai':
@@ -729,7 +729,7 @@ export function ModelSelectorDialog({
                           <span className="absolute inset-0 -m-0.5 rounded-full bg-amber-400/15 dark:bg-amber-500/10 blur-[3px]" />
                         )}
                         {isAll ? (
-                          <SciraLogo width={isMobile ? 16 : 14} height={isMobile ? 16 : 14} />
+                          <TwigaMark width={isMobile ? 16 : 14} height={isMobile ? 16 : 14} />
                         ) : (
                           <ProviderIcon provider={provider as ModelProvider} size={isMobile ? 16 : 14} />
                         )}

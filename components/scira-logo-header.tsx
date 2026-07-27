@@ -1,9 +1,8 @@
 import React from 'react';
-import { SciraLogo } from './logos/scira-logo';
+import { TwigaLogo } from './logos/twiga-logo';
 
 export const SciraLogoHeader = () => (
   <div className="flex items-center gap-2 my-1.5">
-    <SciraLogo className="size-6.5" />
-    <h2 className="text-xl font-normal font-be-vietnam-pro text-foreground dark:text-foreground">Twiga AI</h2>
+    <TwigaLogo className="h-6.5 w-auto text-foreground" />
   </div>
 );

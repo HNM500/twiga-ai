@@ -391,7 +391,7 @@ export async function POST(req: NextRequest) {
         const existingAnnots: any = page.node.get(PDFName.of('Annots'));
         if (existingAnnots) (existingAnnots as any).push(linkRef);
         else page.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkRef]));
-      } catch { }
+      } catch {}
     };
 
     const svgToPngImage = async (svg: string, scaleFactor: number) => {
@@ -419,7 +419,7 @@ export async function POST(req: NextRequest) {
       }
     };
 
-    // Professional header with Scira branding and chat title
+    // Professional header with Twiga branding and chat title
     const drawProfessionalHeader = () => {
       // One-line: logo + app name/title
       const titleSize = 16;
@@ -430,7 +430,7 @@ export async function POST(req: NextRequest) {
       const capHeight = titleSize * 0.7;
       const baselineAdjust = 25; // nudge downward for visual alignment
       const logoTop = y + capHeight + baselineAdjust;
-      const logoHeight = drawSciraLogo(margin, logoTop, logoWidth, logoColor);
+      const logoHeight = drawTwigaMark(margin, logoTop, logoWidth, logoColor);
       const textX = margin + logoWidth + 8;
       const headerText = title ?? 'Twiga AI';
       drawTextWithFallback(headerText, textX, y, titleSize, fontBold, rgb(0, 0, 0));
@@ -927,42 +927,22 @@ export async function POST(req: NextRequest) {
       return out;
     };
 
-    // Draw the Scira logo (vector) using the same SVG paths as components/logos/scira-logo.tsx
+    // Draw the Twiga mark as vector artwork.
     // Positions the logo with its top-left at (x, yTop). Width controls overall size.
-    function drawSciraLogo(x: number, yTop: number, width: number, color = rgb(0, 0, 0)) {
-      // Original viewBox: 910 x 934
-      const vbW = 910;
-      const vbH = 934;
+    function drawTwigaMark(x: number, yTop: number, width: number, color = rgb(0, 0, 0)) {
+      const vbW = 256;
+      const vbH = 256;
       const scale = width / vbW;
       const height = vbH * scale;
       const y = yTop - height; // convert to bottom-left anchor for PDF
 
-      const border = (w: number) => Math.max(0.5, w * scale);
+      const mark =
+        'M90 16C82 16 76 22 76 30V62C76 67 72 71 67 71H40C30 71 23 78 23 88V105C23 115 30 122 40 122H78V181C78 221 96 240 138 240H191C201 240 208 233 208 223V207C208 197 201 190 191 190H148C137 190 132 185 132 174V122H207C217 122 224 115 224 105V88C224 78 217 71 207 71H142C136 71 132 67 132 61V30C132 22 126 16 118 16H90Z';
+      const giraffeCutout =
+        'M89 240C89 210 90 179 94 151C98 118 101 91 111 73C109 66 110 58 115 54C118 52 120 55 119 59L118 65C121 64 124 63 127 63C126 58 128 53 132 52C136 52 137 56 135 60L133 66C138 66 142 67 146 69L151 66C156 65 158 69 154 73L151 76C158 79 164 83 168 86L188 97C194 101 194 106 190 110C183 116 169 117 156 113L143 109C134 106 126 109 122 118C114 138 114 170 109 194C106 214 101 230 97 240H89Z';
 
-      // Paths extracted from /components/logos/scira-logo.tsx
-      const p1 =
-        'M647.664 197.775C569.13 189.049 525.5 145.419 516.774 66.8849C508.048 145.419 464.418 189.049 385.884 197.775C464.418 206.501 508.048 250.131 516.774 328.665C525.5 250.131 569.13 206.501 647.664 197.775Z';
-      const p2 =
-        'M516.774 304.217C510.299 275.491 498.208 252.087 480.335 234.214C462.462 216.341 439.058 204.251 410.333 197.775C439.059 191.3 462.462 179.209 480.335 161.336C498.208 143.463 510.299 120.06 516.774 91.334C523.25 120.059 535.34 143.463 553.213 161.336C571.086 179.209 594.49 191.3 623.216 197.775C594.49 204.251 571.086 216.341 553.213 234.214C535.34 252.087 523.25 275.491 516.774 304.217Z';
-      const p3 =
-        'M857.5 508.116C763.259 497.644 710.903 445.288 700.432 351.047C689.961 445.288 637.605 497.644 543.364 508.116C637.605 518.587 689.961 570.943 700.432 665.184C710.903 570.943 763.259 518.587 857.5 508.116Z';
-      const p4 =
-        'M700.432 615.957C691.848 589.05 678.575 566.357 660.383 548.165C642.191 529.973 619.499 516.7 592.593 508.116C619.499 499.533 642.191 486.258 660.383 468.066C678.575 449.874 691.848 427.181 700.432 400.274C709.015 427.181 722.289 449.874 740.481 468.066C758.673 486.258 781.365 499.533 808.271 508.116C781.365 516.7 758.673 529.973 740.481 548.165C722.289 566.357 709.015 589.05 700.432 615.957Z';
-      const p5 =
-        'M889.949 121.237C831.049 114.692 798.326 81.9698 791.782 23.0692C785.237 81.9698 752.515 114.692 693.614 121.237C752.515 127.781 785.237 160.504 791.782 219.404C798.326 160.504 831.049 127.781 889.949 121.237Z';
-      const p6 =
-        'M791.782 196.795C786.697 176.937 777.869 160.567 765.16 147.858C752.452 135.15 736.082 126.322 716.226 121.237C736.082 116.152 752.452 107.324 765.16 94.6152C777.869 81.9065 786.697 65.5368 791.782 45.6797C796.867 65.5367 805.695 81.9066 818.403 94.6152C831.112 107.324 847.481 116.152 867.338 121.237C847.481 126.322 831.112 135.15 818.403 147.858C805.694 160.567 796.867 176.937 791.782 196.795Z';
-      const p7 =
-        'M760.632 764.337C720.719 814.616 669.835 855.1 611.872 882.692C553.91 910.285 490.404 924.255 426.213 923.533C362.022 922.812 298.846 907.419 241.518 878.531C184.19 849.643 134.228 808.026 95.4548 756.863C56.6815 705.7 30.1238 646.346 17.8129 583.343C5.50206 520.339 7.76432 455.354 24.4266 393.359C41.0889 331.364 71.7099 274.001 113.947 225.658C156.184 177.315 208.919 139.273 268.117 114.442';
-
-      // Draw strokes and fills
-      page.drawSvgPath(p1, { x, y, scale, borderColor: color, borderWidth: border(8) });
-      page.drawSvgPath(p2, { x, y, scale, color, borderColor: color, borderWidth: border(8) });
-      page.drawSvgPath(p3, { x, y, scale, borderColor: color, borderWidth: border(20) });
-      page.drawSvgPath(p4, { x, y, scale, borderColor: color, borderWidth: border(20) });
-      page.drawSvgPath(p5, { x, y, scale, borderColor: color, borderWidth: border(8) });
-      page.drawSvgPath(p6, { x, y, scale, color, borderColor: color, borderWidth: border(8) });
-      page.drawSvgPath(p7, { x, y, scale, borderColor: color, borderWidth: border(30) });
+      page.drawSvgPath(mark, { x, y, scale, color });
+      page.drawSvgPath(giraffeCutout, { x, y, scale, color: rgb(1, 1, 1) });
 
       return height;
     }
@@ -1434,7 +1414,7 @@ export async function POST(req: NextRequest) {
         let inlineTokens: any[] | undefined;
         try {
           inlineTokens = Lexer.lexInline(item.text);
-        } catch { }
+        } catch {}
         const built = inlineTokens
           ? flattenInline(inlineTokens, font, fontSize)
           : [{ text: String(item.text), font, size: fontSize }];

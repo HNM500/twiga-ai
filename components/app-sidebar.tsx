@@ -65,7 +65,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ComprehensiveUserData } from '@/lib/user-data-server';
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { TwigaLogo, TwigaMark } from '@/components/logos/twiga-logo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTheme } from 'next-themes';
 import { Button } from './ui/button';
@@ -151,9 +151,7 @@ function UserDropdownContent({
           <p className={cn('text-sm font-semibold leading-none', blurPersonalInfo && 'blur-sm')}>
             {user.name || 'User'}
           </p>
-          <p className="text-xs text-muted-foreground">
-            Twiga account
-          </p>
+          <p className="text-xs text-muted-foreground">Twiga account</p>
         </div>
       </DropdownMenuLabel>
 
@@ -665,11 +663,11 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                   aria-label="New chat"
                   className="inline-flex items-center gap-1 w-fit group-data-[collapsible=icon]:mx-auto"
                 >
-                  <div className="flex items-center justify-center size-6 shrink-0 transition-opacity duration-200 group-data-[collapsible=icon]:group-hover:opacity-0">
-                    <SciraLogo className="size-6" />
+                  <div className="hidden items-center justify-center size-6 shrink-0 transition-opacity duration-200 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:group-hover:opacity-0">
+                    <TwigaMark className="size-6" />
                   </div>
-                  <div className="flex flex-row items-center gap-2 leading-none group-data-[collapsible=icon]:hidden">
-                    <span className="font-be-vietnam-pro font-light tracking-tighter text-xl">Twiga AI</span>
+                  <div className="flex flex-row items-center leading-none group-data-[collapsible=icon]:hidden">
+                    <TwigaLogo className="h-5 w-auto" />
                   </div>
                 </Link>
               </Button>
@@ -1060,7 +1058,6 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
             </>
           )}
         </SidebarMenu>
-
       </SidebarContent>
 
       {/* Footer - User Account with Dropdown Menu */}
@@ -1076,9 +1073,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="relative shrink-0">
                           <div className="rounded-full">
-                            <Avatar
-                              className="h-8 w-8 overflow-hidden rounded-full mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]"
-                            >
+                            <Avatar className="h-8 w-8 overflow-hidden rounded-full mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]">
                               <AvatarImage src={user.image || ''} className={cn(blurPersonalInfo && 'blur-sm')} />
                               <AvatarFallback
                                 className={cn(
@@ -1139,9 +1134,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                     <Button variant="ghost" size="icon" className="h-10 w-10 p-0 overflow-visible">
                       <div className="relative">
                         <div className="rounded-full">
-                          <Avatar
-                            className="h-6 w-6 overflow-hidden rounded-full mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]"
-                          >
+                          <Avatar className="h-6 w-6 overflow-hidden rounded-full mask-[radial-gradient(white,black)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]">
                             <AvatarImage src={user.image || ''} className={cn(blurPersonalInfo && 'blur-sm')} />
                             <AvatarFallback
                               className={cn(

@@ -13,7 +13,7 @@ import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import { forkChat } from '@/app/actions';
 import { Attachment, ChatMessage } from '@/lib/types';
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { TwigaMark } from '@/components/logos/twiga-logo';
 
 interface ShareViewerProps {
   chatId: string;
@@ -42,21 +42,21 @@ export function ShareViewer({ chatId, chatTitle, shareUrl, messages, isSignedIn,
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
-      sileo.success({ 
+      sileo.success({
         title: 'Link copied',
         description: 'You can now paste it anywhere',
         icon: <Copy className="h-4 w-4" />,
         button: {
           title: 'Open link',
-          onClick: () => window.open(shareUrl, '_blank', 'noopener,noreferrer')
-        }
+          onClick: () => window.open(shareUrl, '_blank', 'noopener,noreferrer'),
+        },
       });
     } catch (error) {
       console.error('Failed to copy link:', error);
-      sileo.error({ 
+      sileo.error({
         title: 'Failed to copy link',
         description: 'Please try again',
-        icon: <Copy className="h-4 w-4" />
+        icon: <Copy className="h-4 w-4" />,
       });
     }
   };
@@ -79,11 +79,10 @@ export function ShareViewer({ chatId, chatTitle, shareUrl, messages, isSignedIn,
   };
 
   const headerOffsetClassName =
-    state === 'expanded' ? 'md:left-[calc(var(--sidebar-width))] md:right-0' : 'md:left-[calc(var(--sidebar-width-icon))] md:right-0';
-  const floatingBarClassName = cn(
-    'fixed bottom-0 z-20 left-0 right-0',
-    headerOffsetClassName,
-  );
+    state === 'expanded'
+      ? 'md:left-[calc(var(--sidebar-width))] md:right-0'
+      : 'md:left-[calc(var(--sidebar-width-icon))] md:right-0';
+  const floatingBarClassName = cn('fixed bottom-0 z-20 left-0 right-0', headerOffsetClassName);
 
   return (
     <div className="min-h-screen w-full bg-background">
@@ -106,13 +105,17 @@ export function ShareViewer({ chatId, chatTitle, shareUrl, messages, isSignedIn,
             </Avatar>
             <div className="min-w-0 flex-1">
               <h1 className="text-sm font-semibold tracking-tight text-foreground truncate">{chatTitle}</h1>
-              <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">
-                by {sharedBy}
-              </p>
+              <p className="font-pixel text-[9px] text-muted-foreground/50 uppercase tracking-wider">by {sharedBy}</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <Button variant="ghost" size="sm" onClick={handleCopyLink} className="h-7 w-7 p-0 rounded-lg" title="Copy link">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyLink}
+              className="h-7 w-7 p-0 rounded-lg"
+              title="Copy link"
+            >
               <Copy className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -149,22 +152,34 @@ export function ShareViewer({ chatId, chatTitle, shareUrl, messages, isSignedIn,
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-border/50 bg-background/90 backdrop-blur-xl px-4 py-3 shadow-lg shadow-black/5">
               {/* Top row on mobile / left side on desktop */}
               <div className="flex items-center gap-3 min-w-0">
-                <SciraLogo className="size-5 shrink-0 text-foreground/70" />
+                <TwigaMark className="size-5 shrink-0 text-foreground/70" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground leading-tight">You&apos;re viewing a shared chat</p>
                   <p className="text-xs text-muted-foreground leading-tight mt-0.5 hidden sm:block">
-                    {isSignedIn ? 'Copy it to your account to keep the conversation going' : 'Sign in to continue this conversation'}
+                    {isSignedIn
+                      ? 'Copy it to your account to keep the conversation going'
+                      : 'Sign in to continue this conversation'}
                   </p>
                 </div>
               </div>
               {/* Bottom row on mobile / right side on desktop */}
               <div className="flex items-center gap-1.5 shrink-0">
-                <Button variant="ghost" size="sm" onClick={handleCopyLink} className="h-8 text-xs rounded-lg gap-1.5 px-2.5 text-muted-foreground hover:text-foreground">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCopyLink}
+                  className="h-8 text-xs rounded-lg gap-1.5 px-2.5 text-muted-foreground hover:text-foreground"
+                >
                   <Copy className="h-3 w-3" />
                   Copy link
                 </Button>
                 {isSignedIn ? (
-                  <Button size="sm" onClick={handleFork} disabled={isForking} className="h-8 text-xs rounded-lg gap-1.5 px-3 flex-1 sm:flex-none">
+                  <Button
+                    size="sm"
+                    onClick={handleFork}
+                    disabled={isForking}
+                    className="h-8 text-xs rounded-lg gap-1.5 px-3 flex-1 sm:flex-none"
+                  >
                     {isForking ? 'Copying…' : 'Continue in my account'}
                     {!isForking && <ArrowRight className="h-3 w-3" />}
                   </Button>

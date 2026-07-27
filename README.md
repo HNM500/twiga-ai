@@ -4,6 +4,8 @@
 
 This public web application is derived from [Scira](https://github.com/zaidmukaddam/scira) at commit `7215d53023030e247dfc30ffc2ffe44257094f69`. Twiga AI and Scira are licensed under the [GNU Affero General Public License v3.0](LICENSE). See [UPSTREAM.md](UPSTREAM.md) for provenance.
 
+The approved logo, palette, typography, language, and usage rules are recorded in [docs/BRAND.md](docs/BRAND.md).
+
 ## Current product surface
 
 - Guest AI chat

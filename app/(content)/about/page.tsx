@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Building2, Search, ShieldCheck } from 'lucide-react';
 
-import { SciraLogo } from '@/components/logos/scira-logo';
+import { TwigaLogo } from '@/components/logos/twiga-logo';
 import { Button } from '@/components/ui/button';
 import { SOURCE_URL } from '@/lib/site-config';
 
@@ -38,8 +38,7 @@ export default function AboutPage() {
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <SciraLogo className="size-6" />
-            <span className="font-be-vietnam-pro text-xl font-light tracking-tighter">Twiga AI</span>
+            <TwigaLogo className="h-6 w-auto" />
           </Link>
           <nav className="flex items-center gap-5 text-sm text-muted-foreground">
             <Link href="/privacy-policy" className="transition-colors hover:text-foreground">
