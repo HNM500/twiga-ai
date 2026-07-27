@@ -26,7 +26,7 @@ Twiga keeps model selection server-side and exposes one product identity to user
 - GLM 5.2 handles requests that explicitly require deep analysis, complex comparisons or business/decision planning
 - The chat-versus-web decision remains deterministic and incurs no model call
 
-OpenRouter provider routing uses fallbacks. User-facing and hard-reasoning calls prefer lower latency, while utility calls prefer lower price. Reasoning budgets are capped to keep response time and cost bounded.
+OpenRouter provider routing uses fallbacks. User-facing and hard-reasoning calls prefer lower latency, while utility calls prefer lower price. Routine companion reasoning is disabled so tool calls and visible answers are not displaced by hidden reasoning; the dedicated hard-reasoning tier retains a bounded budget.
 
 Google sign-in, Twiga Apps and YouTube search are disabled by default until their readiness checks and credentials are complete. The Tanzanian business directory, business claims, verification and payments are intentionally deferred.
 

@@ -37,7 +37,7 @@ const utilityModel = meteredModel(defaultModel, {
 
 const companionModel = meteredModel(searchModel, {
   reasoning: {
-    max_tokens: 512,
+    effort: 'none',
     exclude: true,
   },
   provider: {

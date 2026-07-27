@@ -35,7 +35,7 @@ Search Railway logs for `ai_generation_completed` and `ai_generation_aborted`. C
 
 The current routing policy is:
 
-- `OPENROUTER_SEARCH_MODEL`: normal chat and cited-search synthesis; defaults to DeepSeek V4 Flash
+- `OPENROUTER_SEARCH_MODEL`: normal chat and cited-search synthesis; defaults to DeepSeek V4 Flash with routine reasoning disabled so web mode reliably emits its required search tool call
 - `OPENROUTER_DEFAULT_MODEL`: titles, follow-ups and prompt enhancement; defaults to GPT-OSS 20B
 - `OPENROUTER_REASONING_MODEL`: explicit deep analysis, comparative decisions and complex planning; defaults to GLM 5.2
 - `OPENROUTER_ROUTER_MODEL`: retained compatibility slot for Scira's dormant LLM router; the active chat/web router is deterministic
