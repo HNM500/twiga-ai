@@ -20,6 +20,7 @@ export const serverEnv = createEnv({
     OPENROUTER_DEFAULT_MODEL: optionalString,
     OPENROUTER_SEARCH_MODEL: optionalString,
     OPENROUTER_ROUTER_MODEL: optionalString,
+    OPENROUTER_REASONING_MODEL: optionalString,
     SOURCE_REVISION: optionalString,
     DATABASE_URL: requiredString,
     BETTER_AUTH_SECRET: requiredString,

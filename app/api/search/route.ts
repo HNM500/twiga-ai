@@ -56,7 +56,7 @@ import { ChatMessage } from '@/lib/types';
 import { OpenAIResponsesProviderOptions } from '@ai-sdk/openai';
 import { AnthropicProviderOptions } from '@ai-sdk/anthropic';
 import { getGroupConfig } from '@/lib/search/group-config';
-import { getLatestUserText, routeCompanionRequest } from '@/lib/search/companion-router';
+import { getLatestUserText, routeCompanionModel, routeCompanionRequest } from '@/lib/search/companion-router';
 import {
   getCurrentUser,
   getLightweightUser,
@@ -436,6 +436,7 @@ export async function POST(req: Request) {
           reason: 'manual-override',
         };
   const group = companionRoute.mode;
+  const companionModelDecision = routeCompanionModel(getLatestUserText(requestMessages));
 
   if (typeof requestedModel !== 'string' || requestedModel.length === 0) {
     return new ChatSDKError('bad_request:api', 'A model is required').toResponse();
@@ -460,7 +461,7 @@ export async function POST(req: Request) {
 
   // Initialize model - will be updated by auto-router if needed
   // Normalize stale Scira browser preferences to Twiga's single MVP model.
-  let model: string = requestedModel === 'scira-default' ? requestedModel : 'scira-default';
+  let model: string = companionModelDecision.tier === 'reasoning' ? 'scira-reasoning' : 'scira-default';
   let autoRouteName: string | undefined;
 
   console.log('🔍 Search API:', {
@@ -469,6 +470,8 @@ export async function POST(req: Request) {
     group,
     requestedGroup,
     searchModeReason: companionRoute.reason,
+    modelTier: companionModelDecision.tier,
+    modelTierReason: companionModelDecision.reason,
     latitude,
     longitude,
     isAutoRouted,
@@ -984,6 +987,7 @@ export async function POST(req: Request) {
         ...(shouldUseXaiMultiAgent
           ? {}
           : model === 'scira-default' ||
+              model === 'scira-reasoning' ||
               model === 'scira-grok4.1-fast-thinking' ||
               model === 'scira-glm-4.6' ||
               model === 'scira-glm-4.6v-flash' ||

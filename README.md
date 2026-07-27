@@ -17,6 +17,17 @@ This public web application is derived from [Scira](https://github.com/zaidmukad
 - Railway deployment with database migrations and health checks
 - Structured operational events for request errors, AI latency, token usage and model cost
 
+## Model portfolio
+
+Twiga keeps model selection server-side and exposes one product identity to users:
+
+- DeepSeek V4 Flash handles everyday chat and cited-search synthesis
+- GPT-OSS 20B handles low-cost utility work such as titles, follow-ups and prompt enhancement
+- GLM 5.2 handles requests that explicitly require deep analysis, complex comparisons or business/decision planning
+- The chat-versus-web decision remains deterministic and incurs no model call
+
+OpenRouter provider routing uses fallbacks. User-facing and hard-reasoning calls prefer lower latency, while utility calls prefer lower price. Reasoning budgets are capped to keep response time and cost bounded.
+
 Google sign-in, Twiga Apps and YouTube search are disabled by default until their readiness checks and credentials are complete. The Tanzanian business directory, business claims, verification and payments are intentionally deferred.
 
 ## Required environment variables
@@ -32,6 +43,15 @@ ALLOWED_ORIGINS=http://localhost:3000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_SOURCE_URL=https://github.com/HNM500/twiga-ai
 SOURCE_REVISION=local
+```
+
+The model portfolio has production-safe defaults and can be overridden without a code change:
+
+```dotenv
+OPENROUTER_SEARCH_MODEL=deepseek/deepseek-v4-flash
+OPENROUTER_DEFAULT_MODEL=openai/gpt-oss-20b
+OPENROUTER_ROUTER_MODEL=openai/gpt-oss-20b
+OPENROUTER_REASONING_MODEL=z-ai/glm-5.2
 ```
 
 Google OAuth variables are optional until sign-in is enabled:
