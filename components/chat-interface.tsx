@@ -28,6 +28,8 @@ import { Button } from '@/components/ui/button';
 import FormComponent from '@/components/ui/form-component';
 import { ShareDialog } from '@/components/share/share-dialog';
 import { ExampleCategories } from '@/components/example-categories';
+import { TwigaLogo } from '@/components/logos/twiga-logo';
+import { TwigaLanguageToggle } from '@/components/twiga-language-toggle';
 import {
   Pencil,
   Trash2,
@@ -69,6 +71,7 @@ import { useUsageData } from '@/hooks/use-usage-data';
 import { useUser } from '@/contexts/user-context';
 import { useOptimizedScroll } from '@/hooks/use-optimized-scroll';
 import { useSyncedPreferences } from '@/hooks/use-synced-preferences';
+import { useLanguage } from '@/contexts/language-context';
 
 // Utility and type imports
 import { SEARCH_LIMITS } from '@/lib/constants';
@@ -113,6 +116,11 @@ const ChatInterface = memo(
     const pathname = usePathname();
     const queryClient = useQueryClient();
     const { state } = useSidebar();
+    const { language } = useLanguage();
+    const homeCopy =
+      language === 'sw'
+        ? { tagline: 'Mwongozo wako wa kila siku kwa Tanzania.', newChat: 'Mazungumzo mapya' }
+        : { tagline: 'Your everyday guide to Tanzania.', newChat: 'New chat' };
     const [query] = useQueryState('query', parseAsString.withDefault(''));
     const [q] = useQueryState('q', parseAsString.withDefault(''));
     const [groupParam] = useQueryState('group', parseAsString.withDefault(''));
@@ -1401,7 +1409,7 @@ const ChatInterface = memo(
             </>
           )}
 
-          <div className="flex flex-col font-sans! items-center h-screen bg-background text-foreground transition-all duration-500 w-full overflow-x-hidden scrollbar-thin! scrollbar-thumb-muted-foreground! dark:scrollbar-thumb-muted-foreground! scrollbar-track-transparent! hover:scrollbar-thumb-foreground! dark:hover:scrollbar-thumb-foreground!">
+          <div className="twiga-chat-shell flex min-h-[100dvh] w-full flex-col items-center overflow-x-hidden bg-[#faf9f6] font-sans! text-[#0d2a3a] transition-colors duration-200 scrollbar-thin! scrollbar-thumb-[#0d2a3a]/25! scrollbar-track-transparent! hover:scrollbar-thumb-[#0d2a3a]/45! motion-reduce:transition-none dark:bg-background dark:text-foreground">
             {/* Chat Dialogs Component */}
             <ChatDialogs
               commandDialogOpen={chatState.commandDialogOpen}
@@ -1419,46 +1427,39 @@ const ChatInterface = memo(
             <div
               className={`w-full p-2 sm:p-4 relative ${
                 uiStatus === 'ready' && messages.length === 0
-                  ? 'flex-1 flex! flex-col! items-center! justify-center!' // Center everything when no messages
+                  ? 'flex-1 flex! flex-col! items-center! justify-center! py-12 sm:py-16' // Center everything when no messages
                   : 'flex flex-col! mt-4' // Add top margin when showing messages
               }`}
             >
               <div
-                className={`w-full max-w-[95%] sm:max-w-2xl space-y-6 p-0 mx-auto transition-all duration-300`}
+                className={cn(
+                  'w-full max-w-[95%] space-y-5 p-0 mx-auto transition-[max-width] duration-200 motion-reduce:transition-none',
+                  uiStatus === 'ready' && messages.length === 0 ? 'sm:max-w-2xl' : 'sm:max-w-2xl',
+                )}
                 style={{ overflowAnchor: 'none' }}
               >
                 {uiStatus === 'ready' && messages.length === 0 && (
-                  <div className="text-center m-0 mb-2">
+                  <div className="relative m-0 mb-6 text-center sm:mb-7">
                     {/* Mobile sidebar trigger for main page */}
-                    <div className="md:hidden absolute top-4 left-4 z-10">
-                      <SidebarTrigger />
+                    <div className="fixed left-4 top-4 z-20 md:hidden">
+                      <SidebarTrigger className="size-10 rounded-xl border border-[#0d2a3a]/10 bg-white/75 text-[#0d2a3a] shadow-[0_8px_24px_rgba(49,39,20,0.06)] backdrop-blur-sm" />
                     </div>
-                    {/* Mobile New Chat button for initial state */}
-                    <div className="md:hidden absolute top-4 right-4 z-10">
-                      <Link href="/new">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          className="rounded-lg bg-accent hover:bg-accent/80 group transition-all hover:scale-105 pointer-events-auto"
-                        >
-                          <PlusIcon size={16} className="group-hover:rotate-90 transition-all" />
-                          <span className="text-sm ml-1.5 group-hover:block hidden animate-in fade-in duration-300">
-                            New
-                          </span>
-                        </Button>
-                      </Link>
+                    <div className="fixed right-4 top-4 z-20 md:right-6 md:top-5">
+                      <TwigaLanguageToggle compact />
                     </div>
                     <div className="inline-flex items-center gap-3">
-                      <h1 className="text-4xl sm:text-5xl mb-0! text-foreground dark:text-foreground font-be-vietnam-pro! font-light tracking-tighter">
-                        Twiga AI
+                      <h1 className="m-0 flex items-center">
+                        <TwigaLogo className="h-auto w-44 text-[#0d2a3a] sm:w-52" title="Twiga" />
                       </h1>
                       {isUserPro && (
-                        <h1 className="text-2xl font-baumans! leading-4 inline-block px-3! pt-1! pb-2.5! rounded-xl shadow-sm m-0! mt-2! bg-linear-to-br from-secondary/25 via-primary/20 to-accent/25 text-foreground ring-1 ring-ring/35 ring-offset-1 ring-offset-background dark:bg-linear-to-br dark:from-primary dark:via-secondary dark:to-primary dark:text-foreground">
+                        <span className="mt-2 inline-flex rounded-full border border-[#e9a72f]/35 bg-[#f4b63e]/16 px-2.5 py-1 text-xs font-semibold text-[#0d2a3a]">
                           {isUserMax ? 'max' : 'pro'}
-                        </h1>
+                        </span>
                       )}
                     </div>
+                    <p className="mx-auto mt-3 max-w-md text-pretty text-sm font-normal text-[#53636c] sm:text-base">
+                      {homeCopy.tagline}
+                    </p>
                   </div>
                 )}
 
@@ -1626,7 +1627,7 @@ const ChatInterface = memo(
 
                     {/* Example Categories - only for non-pro, non-temporary users */}
                     {messages.length === 0 && !chatState.hasSubmitted && !isTemporaryChat && !isUserPro && (
-                      <div className="mt-5 space-y-2.5">
+                      <div className="mt-3.5 space-y-2">
                         <ExampleCategories onSelectExample={handleExampleSelect} />
                       </div>
                     )}

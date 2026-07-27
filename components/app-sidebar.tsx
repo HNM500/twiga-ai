@@ -90,6 +90,7 @@ import { ShareDialog } from '@/components/share/share-dialog';
 import { sileo } from 'sileo';
 import { signOut } from '@/lib/auth-client';
 import { SOURCE_URL } from '@/lib/site-config';
+import { useLanguage } from '@/contexts/language-context';
 
 type VisibilityType = 'public' | 'private';
 
@@ -399,6 +400,31 @@ const groupChatsByDate = (chats: any[]) => {
 };
 
 export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
+  const { language } = useLanguage();
+  const copy =
+    language === 'sw'
+      ? {
+          ask: 'Uliza Twiga',
+          history: 'Historia ya mazungumzo',
+          about: 'Kuhusu',
+          terms: 'Masharti',
+          privacy: 'Faragha',
+          source: 'Msimbo wa chanzo',
+          signIn: 'Ingia',
+          signInNote: 'Bure · Huhitaji kadi',
+          recent: 'Mazungumzo ya karibuni',
+        }
+      : {
+          ask: 'Ask Twiga',
+          history: 'Chat history',
+          about: 'About',
+          terms: 'Terms',
+          privacy: 'Privacy',
+          source: 'Source code',
+          signIn: 'Sign in',
+          signInNote: 'Free · No credit card',
+          recent: 'Recent',
+        };
   const [blurPersonalInfo] = useSyncedPreferences<boolean>('scira-blur-personal-info', false);
   const [isRecentCollapsed, setIsRecentCollapsed] = React.useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
@@ -466,25 +492,25 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
   const signedOutLinks: SignedOutLink[] = [
     {
       id: 'about',
-      label: 'About',
+      label: copy.about,
       icon: InfoIcon,
       href: '/about',
     },
     {
       id: 'terms',
-      label: 'Terms',
+      label: copy.terms,
       icon: FileTextIcon,
       href: '/terms',
     },
     {
       id: 'privacy',
-      label: 'Privacy',
+      label: copy.privacy,
       icon: ShieldIcon,
       href: '/privacy-policy',
     },
     {
       id: 'source',
-      label: 'Source code',
+      label: copy.source,
       icon: CodeIcon,
       href: SOURCE_URL,
       external: true,
@@ -645,38 +671,38 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
   return (
     <Sidebar
       collapsible="icon"
-      className="shadow-none! border-none! **:data-[slot=sidebar-inner]:light:bg-primary/10 **:data-[slot=sidebar-inner]:dark:bg-primary/4 **:data-[slot=sidebar-inner]:colourful:bg-primary/10 **:data-[slot=sidebar-inner]:text-sidebar-foreground **:data-[slot=sidebar-gap]:bg-transparent"
+      className="twiga-sidebar shadow-none! border-none! text-[#f7f3ea] **:data-[slot=sidebar-inner]:bg-[#0d2a3a]! **:data-[slot=sidebar-inner]:text-[#f7f3ea]! **:data-[slot=sidebar-gap]:bg-transparent"
     >
       {/* Header */}
       <SidebarHeader className="p-0!">
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="relative flex items-center w-full h-12 px-2 overflow-visible">
+            <div className="relative flex h-16 w-full items-center overflow-visible px-4 group-data-[collapsible=icon]:h-14 group-data-[collapsible=icon]:px-0">
               <Button
                 asChild
                 variant="ghost"
-                className="h-auto w-fit group-data-[collapsible=icon]:p-0 py-1 px-2 justify-start hover:bg-primary/10!"
+                className="h-auto w-fit justify-start p-0 text-[#f7f3ea] hover:bg-transparent! hover:text-white group-data-[collapsible=icon]:mx-auto"
               >
                 <Link
                   href="/new"
                   onClick={closeMobileSidebar}
                   aria-label="New chat"
-                  className="inline-flex items-center gap-1 w-fit group-data-[collapsible=icon]:mx-auto"
+                  className="inline-flex w-fit items-center group-data-[collapsible=icon]:mx-auto"
                 >
-                  <div className="hidden items-center justify-center size-6 shrink-0 transition-opacity duration-200 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:group-hover:opacity-0">
-                    <TwigaMark className="size-6" />
+                  <div className="hidden size-7 shrink-0 items-center justify-center transition-opacity duration-150 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:group-hover:opacity-0 motion-reduce:transition-none">
+                    <TwigaMark className="size-7" />
                   </div>
-                  <div className="flex flex-row items-center leading-none group-data-[collapsible=icon]:hidden">
-                    <TwigaLogo className="h-5 w-auto" />
+                  <div className="flex items-center leading-none group-data-[collapsible=icon]:hidden">
+                    <TwigaLogo className="size-auto! h-8! w-auto! text-[#f7f3ea]" />
                   </div>
                 </Link>
               </Button>
 
               {/* Expanded state trigger on the right of the logo */}
-              <div className="absolute top-2 right-2 group-data-[collapsible=icon]:hidden">
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 group-data-[collapsible=icon]:hidden">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <SidebarTrigger className="size-8" />
+                    <SidebarTrigger className="size-8 text-[#f7f3ea]/65 hover:bg-white/10 hover:text-white" />
                   </TooltipTrigger>
                   <TooltipContent side="right" align="center" hidden={state !== 'expanded' || isMobile}>
                     Close Sidebar <span className="text-xs text-secondary pl-0.5">⌘B</span>
@@ -688,7 +714,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
               <div className="absolute inset-0 flex items-center justify-center opacity-0 pointer-events-none group-data-[collapsible=icon]:group-hover:opacity-100 group-data-[collapsible=icon]:group-hover:pointer-events-auto">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <SidebarTrigger className="size-8 transition-opacity duration-200 opacity-0 group-data-[collapsible=icon]:group-hover:opacity-100" />
+                    <SidebarTrigger className="size-8 text-[#f7f3ea] transition-opacity duration-150 opacity-0 group-data-[collapsible=icon]:group-hover:opacity-100 motion-reduce:transition-none" />
                   </TooltipTrigger>
                   <TooltipContent side="right" align="center" hidden={state !== 'collapsed' || isMobile}>
                     Open Sidebar
@@ -702,14 +728,14 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
       </SidebarHeader>
 
       {/* Static Navigation - does not scroll */}
-      <SidebarGroup className="p-2 pb-0 gap-0 shrink-0">
+      <SidebarGroup className="shrink-0 gap-0 px-3 pb-0 pt-1 group-data-[collapsible=icon]:px-1.5">
         <SidebarMenu className="group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
           {/* New Chat - Primary Action */}
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              tooltip="New Chat"
-              className="bg-primary/10 hover:bg-primary/20 text-sidebar-accent-foreground font-medium transition-all duration-200 active:scale-[0.98]"
+              tooltip={copy.ask}
+              className="h-10 rounded-lg bg-[#f4b63e]! px-3 text-sm font-semibold text-[#0d2a3a]! shadow-[0_3px_10px_rgba(244,182,62,0.12)] transition-[transform,background-color] duration-150 hover:bg-[#f7c45f]! active:scale-[0.98] group-data-[collapsible=icon]:size-9 group-data-[collapsible=icon]:px-0 motion-reduce:transform-none motion-reduce:transition-none"
             >
               <Link
                 prefetch
@@ -718,7 +744,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                 className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
               >
                 <PlusIcon size={18} weight="bold" />
-                <span className="group-data-[collapsible=icon]:hidden">New chat</span>
+                <span className="group-data-[collapsible=icon]:hidden">{copy.ask}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -727,11 +753,11 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                tooltip="Chat history"
+                tooltip={copy.history}
                 className={cn(
-                  'hover:bg-primary/10 transition-all duration-200',
+                  'mt-1.5 h-9 rounded-lg text-sm text-[#f7f3ea]/78 hover:bg-white/9 hover:text-white transition-[background-color,color,transform] duration-150 active:scale-[0.98] motion-reduce:transition-none',
                   pathname === '/searches' || pathname?.startsWith('/searches/')
-                    ? 'bg-primary/15 text-foreground font-medium'
+                    ? 'bg-white/12 text-white font-medium'
                     : '',
                 )}
               >
@@ -741,7 +767,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                   className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
                 >
                   <HugeiconsIcon icon={FolderLibraryIcon} size={18} />
-                  <span className="group-data-[collapsible=icon]:hidden">Chat history</span>
+                  <span className="group-data-[collapsible=icon]:hidden">{copy.history}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -786,7 +812,11 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
 
               return (
                 <SidebarMenuItem key={link.id}>
-                  <SidebarMenuButton asChild tooltip={link.label} className="hover:bg-primary/10">
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={link.label}
+                    className="mt-0.5 h-9 rounded-lg text-sm text-[#f7f3ea]/76 transition-[background-color,color,transform] duration-150 hover:bg-white/9 hover:text-white active:scale-[0.98] motion-reduce:transition-none"
+                  >
                     {link.external ? (
                       <a
                         href={link.href}
@@ -821,7 +851,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
             className="px-2 pt-2 pb-1 group-data-[collapsible=icon]:hidden flex w-full items-center justify-between text-left text-muted-foreground/80 hover:text-foreground transition-colors"
             aria-expanded={!isRecentCollapsed}
           >
-            <span className="font-pixel text-[11px] uppercase tracking-[0.12em]">Recent</span>
+            <span className="text-[11px] font-medium text-[#f7f3ea]/48">{copy.recent}</span>
             <ChevronDown
               className={cn('h-3 w-3 transition-transform duration-150', isRecentCollapsed ? '-rotate-90' : 'rotate-0')}
             />
@@ -830,7 +860,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
       </SidebarGroup>
 
       {/* Scrollable Content - only recent chats scroll */}
-      <SidebarContent className="p-2 pt-0">
+      <SidebarContent className="px-3 pb-2 pt-0 group-data-[collapsible=icon]:px-1.5">
         <SidebarMenu className="group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
           {/* Recent Chats - With Date Grouping */}
           {user && !isRecentCollapsed && (
@@ -888,8 +918,8 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                               >
                                 <div
                                   className={cn(
-                                    'group flex items-center w-full rounded-md transition-all duration-200',
-                                    isCurrentChat || isMenuOpen ? 'bg-primary/15' : 'hover:bg-primary/8',
+                                    'group flex items-center w-full rounded-lg text-[#f7f3ea]/70 transition-colors duration-150',
+                                    isCurrentChat || isMenuOpen ? 'bg-white/12 text-white' : 'hover:bg-white/8 hover:text-white',
                                   )}
                                 >
                                   <Link
@@ -986,8 +1016,8 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                               >
                                 <div
                                   className={cn(
-                                    'group flex items-center w-full rounded-md transition-all duration-200',
-                                    isCurrentChat || isMenuOpen ? 'bg-primary/15' : 'hover:bg-primary/8',
+                                    'group flex items-center w-full rounded-lg text-[#f7f3ea]/70 transition-colors duration-150',
+                                    isCurrentChat || isMenuOpen ? 'bg-white/12 text-white' : 'hover:bg-white/8 hover:text-white',
                                   )}
                                 >
                                   <Link
@@ -1050,7 +1080,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                 ) : (
                   <SidebarMenuItem>
                     <div className="px-2 py-1.5">
-                      <span className="text-sm text-sidebar-foreground/50">No chats yet</span>
+                      <span className="text-sm text-[#f7f3ea]/48">No chats yet</span>
                     </div>
                   </SidebarMenuItem>
                 )}
@@ -1061,7 +1091,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
       </SidebarContent>
 
       {/* Footer - User Account with Dropdown Menu */}
-      <SidebarFooter className="group-data-[collapsible=icon]:border-none border-t border-border p-0 gap-0">
+      <SidebarFooter className="gap-0 border-t border-white/12 p-0 group-data-[collapsible=icon]:border-white/10">
         {user ? (
           <SidebarMenu className="gap-0">
             <SidebarMenuItem>
@@ -1069,7 +1099,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
               <div className="group-data-[collapsible=icon]:hidden">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex w-full items-center justify-between gap-2 px-3 py-4 text-left outline-hidden ring-0 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-0 active:bg-primary/20 active:text-sidebar-accent-foreground">
+                    <button className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-[#f7f3ea] outline-hidden ring-0 transition-colors duration-150 hover:bg-white/8 focus-visible:ring-2 focus-visible:ring-[#f4b63e]/80 active:bg-white/12">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="relative shrink-0">
                           <div className="rounded-full">
@@ -1077,7 +1107,7 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                               <AvatarImage src={user.image || ''} className={cn(blurPersonalInfo && 'blur-sm')} />
                               <AvatarFallback
                                 className={cn(
-                                  'bg-primary text-primary-foreground font-semibold',
+                                  'bg-[#f4b63e] text-[#0d2a3a] font-semibold',
                                   blurPersonalInfo && 'blur-sm',
                                 )}
                               >
@@ -1095,13 +1125,13 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                         <div className="flex flex-col gap-0.25 leading-none flex-1 min-w-0 items-start">
                           <span
                             className={cn(
-                              'font-semibold text-sm truncate text-sidebar-foreground text-left w-full',
+                              'font-semibold text-sm truncate text-[#f7f3ea] text-left w-full',
                               blurPersonalInfo && 'blur-sm',
                             )}
                           >
                             {user.name || 'User'}
                           </span>
-                          <span className="text-xs text-sidebar-foreground/70 truncate text-left w-full">
+                          <span className="text-xs text-[#f7f3ea]/58 truncate text-left w-full">
                             Twiga account
                           </span>
                         </div>
@@ -1176,15 +1206,15 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                 prefetch={true}
                 href="/sign-in"
                 onClick={closeMobileSidebar}
-                className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-primary/5 hover:bg-primary/10 transition-colors"
+                className="flex min-h-12 items-center gap-2.5 rounded-lg px-2.5 py-2 text-[#f7f3ea] transition-[background-color,transform] duration-150 hover:bg-white/9 active:scale-[0.98] motion-reduce:transition-none"
               >
-                <div className="flex items-center justify-center size-7 rounded-lg bg-primary/10">
-                  <SignIn size={16} weight="regular" className="text-primary" />
+                <div className="flex size-8 items-center justify-center rounded-lg border border-white/18 bg-white/8">
+                  <SignIn size={18} weight="regular" className="text-[#f4b63e]" />
                 </div>
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-sm font-medium truncate">Sign In</span>
-                  <span className="font-pixel text-[8px] text-muted-foreground uppercase tracking-wider truncate">
-                    Free &middot; No credit card
+                  <span className="text-sm font-semibold truncate">{copy.signIn}</span>
+                  <span className="truncate text-[11px] text-[#f7f3ea]/70">
+                    {copy.signInNote}
                   </span>
                 </div>
               </Link>
@@ -1198,13 +1228,13 @@ export const AppSidebar = memo(({ user, onHistoryClick }: AppSidebarProps) => {
                     prefetch={true}
                     href="/sign-in"
                     onClick={closeMobileSidebar}
-                    className="flex items-center justify-center size-8 mx-auto rounded-md bg-primary/10 hover:bg-primary/15 transition-colors"
+                    className="flex size-10 mx-auto items-center justify-center rounded-xl bg-white/8 text-[#f4b63e] transition-colors duration-150 hover:bg-white/14"
                   >
-                    <SignIn size={16} weight="regular" className="text-primary" />
+                    <SignIn size={18} weight="regular" />
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent side="right" align="center">
-                  Sign In
+                  {copy.signIn}
                 </TooltipContent>
               </Tooltip>
             </SidebarMenuItem>

@@ -17,7 +17,7 @@ import { Providers } from './providers';
 export const metadata: Metadata = {
   metadataBase: new URL('https://twiga.ai'),
   title: {
-    default: 'Twiga AI — Built for Tanzania',
+    default: 'Twiga AI - Built for Tanzania',
     template: '%s | Twiga AI',
   },
   description: 'A Tanzanian AI chat companion with cited web search and trusted local knowledge.',
@@ -47,8 +47,8 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#F9F9F9' },
-    { media: '(prefers-color-scheme: dark)', color: '#111111' },
+    { media: '(prefers-color-scheme: light)', color: '#F8F5EE' },
+    { media: '(prefers-color-scheme: dark)', color: '#0D2A3A' },
   ],
 };
 

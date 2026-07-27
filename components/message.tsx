@@ -228,13 +228,13 @@ const EnhancedErrorDisplay: React.FC<EnhancedErrorDisplayProps> = ({
             </div>
           )}
 
-          <div className="flex items-center justify-between">
-            <p className="text-muted-foreground dark:text-muted-foreground text-xs">
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
               {!user && selectedVisibilityType === 'public'
                 ? 'Please sign in to retry or try a different prompt'
                 : 'You can retry your request or try a different approach'}
             </p>
-            <div className="flex gap-2">
+            <div className="flex shrink-0 gap-2">
               {actions.secondary && canPerformAction(actions.secondary.action) && (
                 <Button
                   onClick={() => handleAction(actions.secondary!.action)}

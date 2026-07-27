@@ -263,6 +263,10 @@ const Messages: React.FC<MessagesProps> = ({
 
   // Check if we should show loading animation
   const shouldShowLoading = useMemo(() => {
+    // An error is a terminal state for the current request. Keeping the loader
+    // mounted here reserves almost a full viewport and pushes the error card
+    // underneath the fixed composer.
+    if (error) return false;
     // Fire immediately via the onBeforeSubmit callback — before SDK status updates
     if (isTransitioning) return true;
     const lastMessage = memoizedMessages[memoizedMessages.length - 1];
@@ -275,7 +279,7 @@ const Messages: React.FC<MessagesProps> = ({
       }
     }
     return false;
-  }, [isTransitioning, status, memoizedMessages]);
+  }, [error, isTransitioning, status, memoizedMessages]);
 
   // Compute index of the most recent assistant message; only that one should keep min-height
   const lastAssistantIndex = useMemo(() => {
@@ -307,13 +311,14 @@ const Messages: React.FC<MessagesProps> = ({
   // Loader reserves min-height when submitted, or streaming after user, or
   // streaming with assistant in skeleton phase (0/1 parts)
   const shouldReserveLoaderMinHeight = useMemo(() => {
+    if (error) return false;
     if (isTransitioning) return true;
     const lastMessage = memoizedMessages[memoizedMessages.length - 1];
     if (lastMessage?.role === 'user') return true;
     if (status === 'submitted') return true;
     if (status === 'streaming' && isActiveAssistantSkeleton) return true;
     return false;
-  }, [isTransitioning, memoizedMessages, status, isActiveAssistantSkeleton]);
+  }, [error, isTransitioning, memoizedMessages, status, isActiveAssistantSkeleton]);
 
   // No useEffect here - let the parent handle scrolling when it receives streaming data
 

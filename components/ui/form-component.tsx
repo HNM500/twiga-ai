@@ -86,6 +86,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CaretDownIcon } from '@phosphor-icons/react/dist/ssr';
 import { useWebHaptics } from 'web-haptics/react';
 import { TWIGA_FEATURES } from '@/lib/twiga-features';
+import { useLanguage } from '@/contexts/language-context';
 
 type SvgIconComponent = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 type HugeiconsIconProp = React.ComponentProps<typeof HugeiconsIcon>['icon'];
@@ -3084,6 +3085,19 @@ const FormComponent: React.FC<FormComponentProps> = ({
   autoRoutedModel,
   onBeforeSubmit,
 }) => {
+  const { language } = useLanguage();
+  const formCopy =
+    language === 'sw'
+      ? {
+          homePrompts: ['Uliza Twiga chochote...', 'Tafuta Tanzania na kwingineko...'],
+          followUp: 'Uliza swali lingine...',
+          send: 'Tuma ujumbe',
+        }
+      : {
+          homePrompts: ['Ask Twiga anything...', 'Search Tanzania and beyond...'],
+          followUp: 'Ask a follow-up...',
+          send: 'Send message',
+        };
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
   const canvasEnabled = false;
   const mcpEnabled = TWIGA_FEATURES.apps;
@@ -4905,7 +4919,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
   }, []);
 
   return (
-    <div className={cn('flex flex-col w-full max-w-2xl mx-auto')}>
+    <div className="twiga-composer mx-auto flex w-full max-w-2xl flex-col">
       <TooltipProvider>
         <div
           data-no-haptics
@@ -5158,11 +5172,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
             )}
 
             {/* Shadow-like background blur effect */}
-            <div className="absolute -inset-1 rounded-2xl bg-primary/3 dark:bg-primary/3 blur-sm! pointer-events-none z-9999 shadow" />
+            <div className="twiga-composer-shadow pointer-events-none absolute -inset-1 z-0 rounded-[1.15rem] bg-[#0d2a3a]/3 blur-md" />
             <div
               className={cn(
-                'relative rounded-xl bg-muted! border border-ring/10 focus-within:border-ring/5 transition-colors duration-200',
-                (isEnhancing || isTypewriting) && 'bg-muted!',
+                'twiga-composer-surface relative rounded-xl border border-[#0d2a3a]/10 bg-white! shadow-[0_8px_24px_rgba(53,42,22,0.055),0_1px_3px_rgba(53,42,22,0.035)] transition-[border-color,box-shadow] duration-200 focus-within:border-[#e9a72f]/70 focus-within:shadow-[0_10px_28px_rgba(53,42,22,0.065),0_0_0_3px_rgba(244,182,62,0.10)] motion-reduce:transition-none',
+                !hasInteracted && 'min-h-[7rem]',
+                (isEnhancing || isTypewriting) && 'bg-white!',
                 showSuggestions &&
                   suggestions.length > 0 &&
                   !hasInteracted &&
@@ -5210,7 +5225,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                       : isTypewriting
                         ? '✨ Writing enhanced prompt...'
                         : hasInteracted
-                          ? 'Ask a follow-up...'
+                          ? formCopy.followUp
                           : '' // rotating overlay handles the empty home state
                   }
                   value={input}
@@ -5230,11 +5245,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
                     'touch-manipulation',
                     'whatsize!',
                     'shadow-none!',
-                    'transition-colors duration-200',
+                    'transition-colors duration-150 motion-reduce:transition-none',
+                    !hasInteracted && 'min-h-[3.75rem]!',
                     // transparent when overlay is active so TextRotate shows through
                     !input && !hasInteracted && !isEnhancing && !isTypewriting && !isRecording
                       ? 'bg-transparent!'
-                      : 'bg-muted!',
+                      : 'bg-white!',
                     (isEnhancing || isTypewriting) && 'text-muted-foreground cursor-wait',
                   )}
                   style={{
@@ -5254,15 +5270,15 @@ const FormComponent: React.FC<FormComponentProps> = ({
 
               {/* Rotating placeholder overlay — after textarea in DOM so it stacks on top */}
               {!isRecording && !input && !isEnhancing && !isTypewriting && !hasInteracted && (
-                <div className="absolute top-0 left-0 right-0 pointer-events-none z-10 px-4 py-[14px]">
+                <div className="pointer-events-none absolute left-0 right-0 top-0 z-10 px-4 py-3.5">
                   <TextRotate
-                    texts={['Ask Twiga anything...', 'Search Tanzania and beyond...']}
+                    texts={formCopy.homePrompts}
                     rotationInterval={3000}
                     splitBy="words"
                     staggerDuration={0.04}
                     staggerFrom="first"
                     transition={{ type: 'spring', damping: 30, stiffness: 400 }}
-                    mainClassName="text-[16px] leading-normal text-muted-foreground/90 font-sans"
+                    mainClassName="text-[16px] leading-normal text-[#64727a] font-sans"
                   />
                 </div>
               )}
@@ -5270,12 +5286,12 @@ const FormComponent: React.FC<FormComponentProps> = ({
               <div
                 className={cn(
                   'flex justify-between items-center rounded-t-none rounded-b-xl',
-                  'bg-muted!',
+                  'bg-white!',
                   'border-0!',
-                  'px-2.5 py-2 gap-2 shadow-none',
+                  'px-2.5 pb-2.5 pt-1.5 gap-2 shadow-none',
                   'transition-all duration-200',
                   (isEnhancing || isTypewriting) && 'pointer-events-none',
-                  isRecording && 'bg-muted! text-muted-foreground!',
+                  isRecording && 'bg-white! text-muted-foreground!',
                 )}
               >
                 {/* Left: Plus menu button + connector selector */}
@@ -5286,9 +5302,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         <button
                           className={cn(
                             'flex items-center justify-center size-8 rounded-full',
-                            'border border-foreground/25 text-foreground/70 bg-foreground/12',
-                            'hover:bg-foreground/18 hover:text-foreground hover:border-foreground/35 transition-colors',
-                            plusMenuOpen && 'bg-foreground/18 text-foreground border-foreground/35',
+                            'border border-[#0d2a3a]/16 text-[#0d2a3a]/72 bg-[#0d2a3a]/5',
+                            'hover:bg-[#0d2a3a]/9 hover:text-[#0d2a3a] hover:border-[#0d2a3a]/24 transition-[background-color,color,border-color,transform] duration-150 active:scale-[0.96] motion-reduce:transition-none',
+                            plusMenuOpen && 'bg-[#0d2a3a]/10 text-[#0d2a3a] border-[#0d2a3a]/25',
                           )}
                           aria-label="More options"
                         >
@@ -5411,9 +5427,9 @@ const FormComponent: React.FC<FormComponentProps> = ({
                             <button
                               className={cn(
                                 'flex items-center justify-center size-8 rounded-full',
-                                'border border-foreground/25 text-foreground/70 bg-foreground/12',
-                                'hover:bg-foreground/18 hover:text-foreground hover:border-foreground/35 transition-colors',
-                                plusMenuOpen && 'bg-foreground/18 text-foreground border-foreground/35',
+                                'border border-[#0d2a3a]/16 text-[#0d2a3a]/72 bg-[#0d2a3a]/5',
+                                'hover:bg-[#0d2a3a]/9 hover:text-[#0d2a3a] hover:border-[#0d2a3a]/24 transition-[background-color,color,border-color,transform] duration-150 active:scale-[0.96] motion-reduce:transition-none',
+                                plusMenuOpen && 'bg-[#0d2a3a]/10 text-[#0d2a3a] border-[#0d2a3a]/25',
                               )}
                               aria-label="More options"
                             >
@@ -5771,7 +5787,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         <Button
                           variant="destructive"
                           size="icon"
-                          className="rounded-full size-8! transition-colors"
+                          className="size-9! rounded-full bg-[#0d2a3a]! text-white! shadow-[0_7px_18px_rgba(13,42,58,0.18)] transition-[transform,background-color,box-shadow] duration-150 hover:-translate-y-0.5 hover:bg-[#163b4d]! hover:shadow-[0_10px_24px_rgba(13,42,58,0.24)] active:translate-y-0 active:scale-[0.95] disabled:translate-y-0 disabled:bg-[#0d2a3a]/18! disabled:text-[#0d2a3a]/35! disabled:shadow-none motion-reduce:transform-none motion-reduce:transition-none"
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
@@ -5849,7 +5865,7 @@ const FormComponent: React.FC<FormComponentProps> = ({
                         sideOffset={6}
                         className="border-0 backdrop-blur-xs py-2 px-3 shadow-none!"
                       >
-                        <span className="font-medium text-[11px]">Send Message</span>
+                        <span className="font-medium text-[11px]">{formCopy.send}</span>
                       </TooltipContent>
                     </Tooltip>
                   )}
