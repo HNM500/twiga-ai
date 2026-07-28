@@ -13,7 +13,7 @@ The approved logo, palette, typography, language, and usage rules are recorded i
 - Reviewed Tanzanian bank discovery through the private Twiga Core directory
 - Saved chats, temporary chats, public sharing and PDF/DOCX export
 - OpenRouter model routing and usage-cost accounting
-- Better Auth with PostgreSQL-backed accounts, sessions, account export and deletion
+- Better Auth with permanent email/password accounts, PostgreSQL-backed sessions, account export and deletion
 - Railway Redis-backed anonymous rate limits, resumable streams and Twiga Apps confirmation handoffs
 - Feature-gated Twiga Apps (MCP) beta with encrypted credentials and outbound-network safeguards
 - Feature-gated YouTube search retained for later validation
@@ -31,7 +31,7 @@ Twiga keeps model selection server-side and exposes one product identity to user
 
 OpenRouter provider routing uses fallbacks. User-facing and hard-reasoning calls prefer lower latency, while utility calls prefer lower price. Routine companion reasoning is disabled so tool calls and visible answers are not displaced by hidden reasoning; the dedicated hard-reasoning tier retains a bounded budget.
 
-Google sign-in, Twiga Apps and YouTube search are disabled by default until their readiness checks and credentials are complete. The directory MVP currently covers reviewed Bank of Tanzania-listed institutions; IT companies, business claims, paid verification and payments remain later phases.
+Email/password account access is permanent and enabled by default. Google sign-in is an optional second method that remains disabled until its readiness checks and credentials are complete. Twiga Apps and YouTube search are also disabled by default. The directory MVP currently covers reviewed Bank of Tanzania-listed institutions; IT companies, business claims, paid verification and payments remain later phases.
 
 ## Required environment variables
 
@@ -48,7 +48,20 @@ NEXT_PUBLIC_SOURCE_URL=https://github.com/HNM500/twiga-ai
 SOURCE_REVISION=local
 TWIGA_CORE_URL=http://twiga-core:4000
 TWIGA_CORE_ASSERTION_SECRET=use-the-same-32-character-or-longer-secret-as-twiga-core
+AUTH_EMAIL_VERIFICATION_REQUIRED=false
+NEXT_PUBLIC_AUTH_EMAIL_DELIVERY_ENABLED=false
 ```
+
+Email/password uses Better Auth's credential accounts and a 12-character minimum. Before enabling verification and password recovery in production, verify a sending domain in Resend and configure all four values together:
+
+```dotenv
+AUTH_EMAIL_VERIFICATION_REQUIRED=true
+NEXT_PUBLIC_AUTH_EMAIL_DELIVERY_ENABLED=true
+RESEND_API_KEY=
+EMAIL_FROM=Twiga <accounts@twiga.ai>
+```
+
+Keep both feature flags `false` until delivery has been tested. Passwords are hashed by Better Auth and are never emailed, logged or visible to administrators. Recovery responses do not reveal whether an email has an account. Future social providers use explicit account linking so a matching email address alone cannot silently merge two accounts.
 
 The model portfolio has production-safe defaults and can be overridden without a code change:
 
@@ -59,7 +72,7 @@ OPENROUTER_ROUTER_MODEL=openai/gpt-oss-20b
 OPENROUTER_REASONING_MODEL=z-ai/glm-5.2
 ```
 
-Google OAuth variables are optional until sign-in is enabled:
+Google OAuth variables are optional until Google sign-in is enabled:
 
 ```dotenv
 GOOGLE_CLIENT_ID=

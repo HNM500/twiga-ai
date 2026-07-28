@@ -42,6 +42,7 @@ export const serverEnv = createEnv({
     GOOGLE_CLIENT_SECRET: optionalString,
     RESEND_API_KEY: optionalString,
     EMAIL_FROM: optionalString,
+    AUTH_EMAIL_VERIFICATION_REQUIRED: z.enum(['true', 'false']).optional().default('false'),
     REDIS_URL: optionalString,
     READ_DB_1: optionalString,
     READ_DB_2: optionalString,

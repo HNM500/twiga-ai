@@ -68,9 +68,10 @@ export default function PrivacyPage() {
                 submit, together with generated answers and cited sources.
               </li>
               <li>
-                <strong>Account and session data:</strong> if account access is enabled, your name, email address,
-                profile image, authentication account, session records and saved chat history. Google OAuth is not yet
-                enabled. Guest chat does not create a saved Twiga chat history.
+                <strong>Account and session data:</strong> if you create an account, your name, email address, profile
+                image, authentication account, session records and saved chat history. Passwords are stored only as
+                one-way password hashes and cannot be viewed by Twiga administrators. Google OAuth is not yet enabled.
+                Guest chat does not create a saved Twiga chat history.
               </li>
               <li>
                 <strong>Technical and security data:</strong> IP-derived rate-limit identifiers, browser and device
@@ -134,6 +135,10 @@ export default function PrivacyPage() {
                   Exa&apos;s privacy policy
                 </a>
                 .
+              </li>
+              <li>
+                <strong>Resend:</strong> will deliver account verification and password-recovery emails when those
+                features are enabled. Until email delivery is configured, Twiga does not send account emails.
               </li>
             </ul>
             <p>
