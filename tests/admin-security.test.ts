@@ -29,8 +29,12 @@ describe('admin security primitives', () => {
     expect(roleHasPermission('super_admin', 'audit:read')).toBe(true);
     expect(roleHasPermission('support', 'sessions:revoke')).toBe(true);
     expect(roleHasPermission('quality_reviewer', 'feedback:write')).toBe(true);
+    expect(roleHasPermission('quality_reviewer', 'data-platform:write')).toBe(true);
     expect(roleHasPermission('quality_reviewer', 'users:suspend')).toBe(false);
     expect(roleHasPermission('ai_operations', 'system:read')).toBe(true);
+    expect(roleHasPermission('ai_operations', 'data-platform:read')).toBe(true);
+    expect(roleHasPermission('ai_operations', 'data-platform:write')).toBe(false);
+    expect(roleHasPermission('support', 'data-platform:read')).toBe(false);
     expect(roleHasPermission('ai_operations', 'users:read')).toBe(false);
     expect(roleHasPermission('user', 'overview:read')).toBe(false);
   });

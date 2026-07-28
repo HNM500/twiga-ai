@@ -19,6 +19,11 @@ import {
   updateAdminFeedback,
 } from '@/lib/admin/data';
 import { logOperationalError, logOperationalEvent } from '@/lib/observability';
+import {
+  getDataPlatformEntityReviews,
+  getDataPlatformOverview,
+  resolveDataPlatformEntityReview,
+} from '@/lib/admin/data-platform';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +37,15 @@ const feedbackSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('resolve'), reason: reasonSchema, resolution: z.string().trim().min(3).max(1000) }),
   z.object({ action: z.literal('note'), reason: reasonSchema, note: z.string().trim().min(1).max(2000) }),
 ]);
+const entityReviewSchema = z.object({
+  action: z.enum(['create_new', 'link_existing', 'dismiss']),
+  organizationPublicId: z.string().regex(/^org_[0-9a-f]{32}$/).optional(),
+  reason: reasonSchema,
+}).superRefine((value, context) => {
+  if (value.action === 'link_existing' && !value.organizationPublicId) {
+    context.addIssue({ code: 'custom', path: ['organizationPublicId'], message: 'An organization is required' });
+  }
+});
 
 function permissionForGet(segments: string[]): AdminPermission | null {
   switch (segments[0]) {
@@ -42,6 +56,7 @@ function permissionForGet(segments: string[]): AdminPermission | null {
     case 'operations': return 'operations:read';
     case 'system': return 'system:read';
     case 'audit': return 'audit:read';
+    case 'data-platform': return 'data-platform:read';
     default: return null;
   }
 }
@@ -49,6 +64,11 @@ function permissionForGet(segments: string[]): AdminPermission | null {
 function parsePage(value: string | null) {
   const parsed = Number.parseInt(value || '1', 10);
   return Number.isFinite(parsed) ? parsed : 1;
+}
+
+function parseLimit(value: string | null, fallback = 50) {
+  const parsed = Number.parseInt(value || String(fallback), 10);
+  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 100) : fallback;
 }
 
 export async function GET(request: Request, context: { params: Promise<{ segments: string[] }> }) {
@@ -68,6 +88,7 @@ export async function GET(request: Request, context: { params: Promise<{ segment
             operations: hasAdminPermission(actor, 'operations:read'),
             system: hasAdminPermission(actor, 'system:read'),
             audit: hasAdminPermission(actor, 'audit:read'),
+            dataPlatform: hasAdminPermission(actor, 'data-platform:read'),
           },
         });
       case 'overview': return Response.json(await getAdminOverview());
@@ -91,6 +112,14 @@ export async function GET(request: Request, context: { params: Promise<{ segment
         action: url.searchParams.get('action') || undefined,
         page: parsePage(url.searchParams.get('page')),
       }));
+      case 'data-platform':
+        if (segments[1] === 'reviews') {
+          return Response.json(await getDataPlatformEntityReviews(actor, {
+            state: url.searchParams.get('state') || undefined,
+            limit: parseLimit(url.searchParams.get('limit')),
+          }));
+        }
+        return Response.json(await getDataPlatformOverview(actor));
       default: return Response.json({ error: 'Not found' }, { status: 404 });
     }
   } catch (error) {
@@ -127,6 +156,14 @@ export async function POST(request: Request, context: { params: Promise<{ segmen
       const result = await updateAdminFeedback(actor, segments[1], body.data);
       if (!result.ok) return Response.json({ error: 'Feedback not found' }, { status: 404 });
       logOperationalEvent('admin_mutation_completed', { action: `feedback.${body.data.action}`, requestId: result.requestId });
+      return Response.json(result);
+    }
+    if (segments[0] === 'data-platform' && segments[1] === 'reviews' && segments[2] && segments[3] === 'resolve') {
+      const actor = await authorizeAdminRequest(request, 'data-platform:write');
+      const body = entityReviewSchema.safeParse(await request.json().catch(() => null));
+      if (!body.success) return Response.json({ error: 'A valid resolution and audit reason are required' }, { status: 400 });
+      const result = await resolveDataPlatformEntityReview(actor, segments[2], body.data);
+      logOperationalEvent('admin_mutation_completed', { action: `data_platform.entity_match.${body.data.action}`, requestId: result.requestId });
       return Response.json(result);
     }
     return Response.json({ error: 'Not found' }, { status: 404 });

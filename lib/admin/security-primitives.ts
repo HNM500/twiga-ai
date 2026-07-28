@@ -3,13 +3,14 @@ import { parseAdminRoles, type AdminRole } from '@/lib/admin/permissions';
 
 export type AdminPermission =
   | 'overview:read' | 'users:read' | 'users:suspend' | 'sessions:revoke'
-  | 'feedback:read' | 'feedback:write' | 'operations:read' | 'system:read' | 'audit:read';
+  | 'feedback:read' | 'feedback:write' | 'operations:read' | 'system:read' | 'audit:read'
+  | 'data-platform:read' | 'data-platform:write';
 
 export const permissionsByRole: Record<AdminRole, readonly AdminPermission[]> = {
-  super_admin: ['overview:read', 'users:read', 'users:suspend', 'sessions:revoke', 'feedback:read', 'feedback:write', 'operations:read', 'system:read', 'audit:read'],
+  super_admin: ['overview:read', 'users:read', 'users:suspend', 'sessions:revoke', 'feedback:read', 'feedback:write', 'operations:read', 'system:read', 'audit:read', 'data-platform:read', 'data-platform:write'],
   support: ['overview:read', 'users:read', 'users:suspend', 'sessions:revoke', 'feedback:read', 'feedback:write'],
-  quality_reviewer: ['overview:read', 'feedback:read', 'feedback:write', 'operations:read'],
-  ai_operations: ['overview:read', 'operations:read', 'system:read'],
+  quality_reviewer: ['overview:read', 'feedback:read', 'feedback:write', 'operations:read', 'data-platform:read', 'data-platform:write'],
+  ai_operations: ['overview:read', 'operations:read', 'system:read', 'data-platform:read'],
 };
 
 function digest(value: string) { return createHash('sha256').update(value).digest(); }
