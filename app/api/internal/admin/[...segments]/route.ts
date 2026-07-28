@@ -22,6 +22,8 @@ import { logOperationalError, logOperationalEvent } from '@/lib/observability';
 import {
   getDataPlatformEntityReviews,
   getDataPlatformOverview,
+  getDataPlatformRun,
+  getDataPlatformRuns,
   resolveDataPlatformEntityReview,
 } from '@/lib/admin/data-platform';
 
@@ -114,6 +116,17 @@ export async function GET(request: Request, context: { params: Promise<{ segment
         page: parsePage(url.searchParams.get('page')),
       }));
       case 'data-platform':
+        if (segments[1] === 'runs' && segments[2]) {
+          return Response.json(await getDataPlatformRun(actor, segments[2]));
+        }
+        if (segments[1] === 'runs') {
+          const allowedKeys = ['state', 'sourceKey', 'connectorKey', 'createdFrom', 'createdTo', 'cursor', 'limit', 'sort'] as const;
+          const unknownKeys = [...url.searchParams.keys()].filter((key) => !allowedKeys.includes(key as typeof allowedKeys[number]));
+          if (unknownKeys.length) return Response.json({ error: 'Unknown run-list filter' }, { status: 400 });
+          return Response.json(await getDataPlatformRuns(actor, Object.fromEntries(
+            allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
+          )));
+        }
         if (segments[1] === 'reviews') {
           return Response.json(await getDataPlatformEntityReviews(actor, {
             state: url.searchParams.get('state') || undefined,
