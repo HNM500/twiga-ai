@@ -5,7 +5,12 @@ import { serverEnv } from '@/env/server';
 import { maindb } from '@/lib/db';
 import { adminAuditLog } from '@/lib/db/schema';
 import { AdminAccessError, type AdminActor } from '@/lib/admin/security';
-import { dataPlatformOverviewSchema } from '@/lib/admin/data-platform-contract';
+import {
+  dataPlatformOverviewSchema,
+  dataPlatformRunDetailSchema,
+  dataPlatformRunListQuerySchema,
+  dataPlatformRunListSchema,
+} from '@/lib/admin/data-platform-contract';
 
 function coreUrl(path: string) {
   return new URL(path, serverEnv.TWIGA_CORE_URL.endsWith('/') ? serverEnv.TWIGA_CORE_URL : `${serverEnv.TWIGA_CORE_URL}/`);
@@ -39,6 +44,30 @@ export async function getDataPlatformOverview(actor: AdminActor) {
   const body = await coreAdminRequest<unknown>(actor, '/internal/v1/admin/data-platform/overview', 'data-platform:read');
   const parsed = dataPlatformOverviewSchema.safeParse(body);
   if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible dashboard contract');
+  return parsed.data;
+}
+
+export async function getDataPlatformRuns(actor: AdminActor, rawInput: Record<string, string | undefined>) {
+  const input = dataPlatformRunListQuerySchema.parse(rawInput);
+  const url = coreUrl('/internal/v1/admin/data-platform/runs');
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
+  const body = await coreAdminRequest<unknown>(actor, `${url.pathname}${url.search}`, 'data-platform:read');
+  const parsed = dataPlatformRunListSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible run-list contract');
+  return parsed.data;
+}
+
+export async function getDataPlatformRun(actor: AdminActor, publicId: string) {
+  if (!/^run_[0-9a-f]{32}$/.test(publicId)) throw new AdminAccessError(400, 'Invalid ingestion run identifier');
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    `/internal/v1/admin/data-platform/runs/${encodeURIComponent(publicId)}`,
+    'data-platform:read',
+  );
+  const parsed = dataPlatformRunDetailSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible run-detail contract');
   return parsed.data;
 }
 
