@@ -5,6 +5,7 @@ import { serverEnv } from '@/env/server';
 import { maindb } from '@/lib/db';
 import { adminAuditLog } from '@/lib/db/schema';
 import { AdminAccessError, type AdminActor } from '@/lib/admin/security';
+import { dataPlatformOverviewSchema } from '@/lib/admin/data-platform-contract';
 
 function coreUrl(path: string) {
   return new URL(path, serverEnv.TWIGA_CORE_URL.endsWith('/') ? serverEnv.TWIGA_CORE_URL : `${serverEnv.TWIGA_CORE_URL}/`);
@@ -34,13 +35,17 @@ async function coreAdminRequest<T>(actor: AdminActor, path: string, scope: 'data
   return body as T;
 }
 
-export function getDataPlatformOverview(actor: AdminActor) {
-  return coreAdminRequest(actor, '/internal/v1/admin/data-platform/overview', 'data-platform:read');
+export async function getDataPlatformOverview(actor: AdminActor) {
+  const body = await coreAdminRequest<unknown>(actor, '/internal/v1/admin/data-platform/overview', 'data-platform:read');
+  const parsed = dataPlatformOverviewSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible dashboard contract');
+  return parsed.data;
 }
 
-export function getDataPlatformEntityReviews(actor: AdminActor, input: { state?: string; limit?: number }) {
+export function getDataPlatformEntityReviews(actor: AdminActor, input: { state?: string; priority?: string; limit?: number }) {
   const url = coreUrl('/internal/v1/reviews/entity-matches');
   if (input.state) url.searchParams.set('state', input.state);
+  if (input.priority) url.searchParams.set('priority', input.priority);
   if (input.limit) url.searchParams.set('limit', String(input.limit));
   return coreAdminRequest(actor, `${url.pathname}${url.search}`, 'reviews:read');
 }

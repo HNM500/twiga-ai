@@ -89,6 +89,7 @@ export async function GET(request: Request, context: { params: Promise<{ segment
             system: hasAdminPermission(actor, 'system:read'),
             audit: hasAdminPermission(actor, 'audit:read'),
             dataPlatform: hasAdminPermission(actor, 'data-platform:read'),
+            dataPlatformWrite: hasAdminPermission(actor, 'data-platform:write'),
           },
         });
       case 'overview': return Response.json(await getAdminOverview());
@@ -116,6 +117,7 @@ export async function GET(request: Request, context: { params: Promise<{ segment
         if (segments[1] === 'reviews') {
           return Response.json(await getDataPlatformEntityReviews(actor, {
             state: url.searchParams.get('state') || undefined,
+            priority: url.searchParams.get('priority') || undefined,
             limit: parseLimit(url.searchParams.get('limit')),
           }));
         }
