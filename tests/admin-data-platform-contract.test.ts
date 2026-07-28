@@ -4,6 +4,9 @@ import {
   dataPlatformRunDetailSchema,
   dataPlatformRunListQuerySchema,
   dataPlatformRunListSchema,
+  dataPlatformReviewDetailSchema,
+  dataPlatformReviewListQuerySchema,
+  dataPlatformReviewListSchema,
 } from '@/lib/admin/data-platform-contract';
 
 const validOverview = {
@@ -73,5 +76,54 @@ describe('Data Platform gateway contract', () => {
       },
       remediationLinks: { workQueue: '/data-platform/reviews?state=open', source: '/data-platform/sources?sourceKey=bank_of_tanzania' },
     }).success).toBe(true);
+  });
+
+  test('accepts the unified review queue and rejects unknown or out-of-range filters', () => {
+    const review = {
+      publicId: 'review_11111111111111111111111111111111', caseType: 'entity_match', priority: 'high', state: 'open',
+      source: { key: 'tcra_licensed_providers', name: 'TCRA Licensed Providers' }, reasonCodes: ['possible_duplicate'],
+      candidate: { name: 'Example Limited', kind: 'legal_entity', sourceRecordId: 'TCRA-1' },
+      confidence: 0.92, confidenceBand: 'high', ageSeconds: 3600, assignee: null,
+      recommendedAction: { action: null, candidatePublicId: null, label: 'Compare candidates', rationale: 'Review required.' },
+      risk: 'medium', createdAt: '2026-07-28T10:00:00.000Z', updatedAt: '2026-07-28T10:01:00.000Z',
+      observedAt: '2026-07-28T09:00:00.000Z', organization: null,
+    };
+    expect(dataPlatformReviewListSchema.safeParse({
+      contractVersion: 'admin-data-platform.v1', generatedAt: '2026-07-28T12:00:00.000Z',
+      cases: [review], count: 1, total: 101, hasMore: true, nextCursor: 'cursor', sort: 'priority:desc',
+      filters: { caseType: null, sourceKey: null, reasonCode: null, priority: null, confidenceBand: null, age: null, state: 'open', assignee: null },
+      filterOptions: {
+        caseTypes: ['entity_match'], states: ['open'], priorities: ['high'], confidenceBands: ['high'], ageBands: ['over24h'],
+        sources: ['tcra_licensed_providers'], reasons: ['possible_duplicate'], assignees: [],
+      },
+    }).success).toBe(true);
+    expect(dataPlatformReviewListQuerySchema.safeParse({ state: 'open', limit: '100', sort: 'confidence:desc' }).success).toBe(true);
+    expect(dataPlatformReviewListQuerySchema.safeParse({ state: 'invented' }).success).toBe(false);
+    expect(dataPlatformReviewListQuerySchema.safeParse({ limit: '101' }).success).toBe(false);
+    expect(dataPlatformReviewListQuerySchema.safeParse({ invented: 'yes' }).success).toBe(false);
+  });
+
+  test('accepts review detail and fails closed when protected evidence fields drift', () => {
+    const detail = {
+      contractVersion: 'admin-data-platform.v1', generatedAt: '2026-07-28T12:00:00.000Z',
+      case: {
+        publicId: 'review_11111111111111111111111111111111', caseType: 'entity_match', priority: 'high', state: 'open',
+        reasonCodes: ['possible_duplicate'], assignee: null, context: {}, resolution: null, ageSeconds: 3600,
+        confidence: 1, confidenceBand: 'exact', risk: 'low', createdAt: '2026-07-28T10:00:00.000Z',
+        updatedAt: '2026-07-28T10:01:00.000Z', resolvedAt: null,
+      },
+      evidence: {
+        publicId: 'obs_11111111111111111111111111111111', sourceRecordId: 'TCRA-1', candidateName: 'Example Limited',
+        candidateKind: 'legal_entity', observedAt: '2026-07-28T09:00:00.000Z', collectedAt: '2026-07-28T09:01:00.000Z',
+        collectionMethod: 'csv', publicationStatus: 'internal_only', evidenceUrl: null,
+        observedFields: { 'identity.legal_name': 'Example Limited' }, stableIdentifiers: [],
+      },
+      source: null, candidates: [], contradictions: [],
+      recommendedAction: { action: 'create_new', candidatePublicId: null, label: 'Create provisional organization', rationale: 'No candidate.' },
+      availableActions: { createNew: true, linkExisting: true, dismiss: true, assignment: { available: false, reason: 'Not supported.' } },
+    };
+    expect(dataPlatformReviewDetailSchema.safeParse(detail).success).toBe(true);
+    expect(dataPlatformReviewDetailSchema.safeParse({ ...detail, case: { ...detail.case, confidence: 1.2 } }).success).toBe(false);
+    expect(dataPlatformReviewDetailSchema.safeParse({ ...detail, availableActions: { ...detail.availableActions, assignment: { available: true, reason: 'Drift.' } } }).success).toBe(false);
   });
 });

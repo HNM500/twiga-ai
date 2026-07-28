@@ -10,6 +10,9 @@ import {
   dataPlatformRunDetailSchema,
   dataPlatformRunListQuerySchema,
   dataPlatformRunListSchema,
+  dataPlatformReviewDetailSchema,
+  dataPlatformReviewListQuerySchema,
+  dataPlatformReviewListSchema,
 } from '@/lib/admin/data-platform-contract';
 
 function coreUrl(path: string) {
@@ -71,18 +74,34 @@ export async function getDataPlatformRun(actor: AdminActor, publicId: string) {
   return parsed.data;
 }
 
-export function getDataPlatformEntityReviews(actor: AdminActor, input: { state?: string; priority?: string; limit?: number }) {
-  const url = coreUrl('/internal/v1/reviews/entity-matches');
-  if (input.state) url.searchParams.set('state', input.state);
-  if (input.priority) url.searchParams.set('priority', input.priority);
-  if (input.limit) url.searchParams.set('limit', String(input.limit));
-  return coreAdminRequest(actor, `${url.pathname}${url.search}`, 'reviews:read');
+export async function getDataPlatformReviews(actor: AdminActor, rawInput: Record<string, string | undefined>) {
+  const input = dataPlatformReviewListQuerySchema.parse(rawInput);
+  const url = coreUrl('/internal/v1/admin/data-platform/reviews');
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
+  const body = await coreAdminRequest<unknown>(actor, `${url.pathname}${url.search}`, 'data-platform:read');
+  const parsed = dataPlatformReviewListSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible review-queue contract');
+  return parsed.data;
+}
+
+export async function getDataPlatformReview(actor: AdminActor, publicId: string) {
+  if (!/^review_[0-9a-f]{32}$/.test(publicId)) throw new AdminAccessError(400, 'Invalid review identifier');
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    `/internal/v1/admin/data-platform/reviews/${encodeURIComponent(publicId)}`,
+    'data-platform:read',
+  );
+  const parsed = dataPlatformReviewDetailSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible review-detail contract');
+  return parsed.data;
 }
 
 export async function resolveDataPlatformEntityReview(
   actor: AdminActor,
   reviewPublicId: string,
-  input: { action: 'create_new' | 'link_existing' | 'dismiss'; organizationPublicId?: string; reason: string },
+  input: { action: 'create_new' | 'link_existing' | 'dismiss'; organizationPublicId?: string; reason: string; expectedUpdatedAt?: string },
 ) {
   const requestId = crypto.randomUUID();
   await maindb.insert(adminAuditLog).values({
@@ -108,6 +127,7 @@ export async function resolveDataPlatformEntityReview(
         action: input.action,
         organizationPublicId: input.organizationPublicId,
         note: input.reason,
+        expectedUpdatedAt: input.expectedUpdatedAt,
       }),
     },
   );

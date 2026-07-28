@@ -20,7 +20,8 @@ import {
 } from '@/lib/admin/data';
 import { logOperationalError, logOperationalEvent } from '@/lib/observability';
 import {
-  getDataPlatformEntityReviews,
+  getDataPlatformReview,
+  getDataPlatformReviews,
   getDataPlatformOverview,
   getDataPlatformRun,
   getDataPlatformRuns,
@@ -43,9 +44,13 @@ const entityReviewSchema = z.object({
   action: z.enum(['create_new', 'link_existing', 'dismiss']),
   organizationPublicId: z.string().regex(/^org_[0-9a-f]{32}$/).optional(),
   reason: reasonSchema,
+  expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
 }).superRefine((value, context) => {
   if (value.action === 'link_existing' && !value.organizationPublicId) {
     context.addIssue({ code: 'custom', path: ['organizationPublicId'], message: 'An organization is required' });
+  }
+  if (value.action !== 'link_existing' && value.organizationPublicId) {
+    context.addIssue({ code: 'custom', path: ['organizationPublicId'], message: 'An organization is only valid when linking' });
   }
 });
 
@@ -66,11 +71,6 @@ function permissionForGet(segments: string[]): AdminPermission | null {
 function parsePage(value: string | null) {
   const parsed = Number.parseInt(value || '1', 10);
   return Number.isFinite(parsed) ? parsed : 1;
-}
-
-function parseLimit(value: string | null, fallback = 50) {
-  const parsed = Number.parseInt(value || String(fallback), 10);
-  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 100) : fallback;
 }
 
 export async function GET(request: Request, context: { params: Promise<{ segments: string[] }> }) {
@@ -128,11 +128,13 @@ export async function GET(request: Request, context: { params: Promise<{ segment
           )));
         }
         if (segments[1] === 'reviews') {
-          return Response.json(await getDataPlatformEntityReviews(actor, {
-            state: url.searchParams.get('state') || undefined,
-            priority: url.searchParams.get('priority') || undefined,
-            limit: parseLimit(url.searchParams.get('limit')),
-          }));
+          if (segments[2]) return Response.json(await getDataPlatformReview(actor, segments[2]));
+          const allowedKeys = ['caseType', 'sourceKey', 'reasonCode', 'priority', 'confidenceBand', 'age', 'state', 'assignee', 'cursor', 'limit', 'sort'] as const;
+          const unknownKeys = [...url.searchParams.keys()].filter((key) => !allowedKeys.includes(key as typeof allowedKeys[number]));
+          if (unknownKeys.length) return Response.json({ error: 'Unknown review-queue filter' }, { status: 400 });
+          return Response.json(await getDataPlatformReviews(actor, Object.fromEntries(
+            allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
+          )));
         }
         return Response.json(await getDataPlatformOverview(actor));
       default: return Response.json({ error: 'Not found' }, { status: 404 });

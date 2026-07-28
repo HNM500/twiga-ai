@@ -122,6 +122,104 @@ export const dataPlatformRunDetailSchema = z.object({
   remediationLinks: z.object({ workQueue: z.string().nullable(), source: z.string() }),
 });
 
+const reviewStateSchema = z.enum(['open', 'assigned', 'resolved', 'dismissed']);
+const reviewPrioritySchema = z.enum(['low', 'normal', 'high', 'urgent']);
+const reviewCaseTypeSchema = z.enum(['rights', 'quality', 'entity_match', 'conflict', 'extraction', 'abuse']);
+const reviewConfidenceBandSchema = z.enum(['unknown', 'low', 'medium', 'high', 'exact']);
+const reviewRecommendationSchema = z.object({
+  action: z.enum(['create_new', 'link_existing']).nullable(), candidatePublicId: z.string().nullable(),
+  label: z.string(), rationale: z.string(),
+});
+
+export const dataPlatformReviewListQuerySchema = z.object({
+  caseType: reviewCaseTypeSchema.optional(),
+  sourceKey: z.string().trim().min(1).max(120).regex(/^[a-z0-9][a-z0-9._:-]*$/i).optional(),
+  reasonCode: z.string().trim().min(1).max(120).regex(/^[a-z0-9][a-z0-9._:-]*$/i).optional(),
+  priority: reviewPrioritySchema.optional(),
+  confidenceBand: reviewConfidenceBandSchema.optional(),
+  age: z.enum(['over24h', 'over7d', 'over30d']).optional(),
+  state: reviewStateSchema.default('open'),
+  assignee: z.enum(['assigned', 'unassigned']).optional(),
+  cursor: z.string().trim().min(1).max(1_000).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  sort: z.enum(['priority:desc', 'createdAt:asc', 'confidence:desc']).default('priority:desc'),
+}).strict();
+
+const reviewCaseSummarySchema = z.object({
+  publicId: z.string().regex(/^review_[0-9a-f]{32}$/), caseType: reviewCaseTypeSchema,
+  priority: reviewPrioritySchema, state: reviewStateSchema,
+  source: z.object({ key: z.string(), name: z.string() }).nullable(), reasonCodes: z.array(z.string()),
+  candidate: z.object({ name: z.string(), kind: z.string().nullable(), sourceRecordId: z.string().nullable() }).nullable(),
+  confidence: z.number().min(0).max(1).nullable(), confidenceBand: reviewConfidenceBandSchema,
+  ageSeconds: z.number().nonnegative(), assignee: z.string().nullable(),
+  recommendedAction: reviewRecommendationSchema, risk: z.enum(['low', 'medium', 'high']),
+  createdAt: z.string(), updatedAt: z.string(), observedAt: z.string().nullable(),
+  organization: z.object({ publicId: z.string(), name: z.string().nullable() }).nullable(),
+});
+
+export const dataPlatformReviewListSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'), generatedAt: z.string(),
+  cases: z.array(reviewCaseSummarySchema), count: z.number().int().nonnegative(), total: z.number().int().nonnegative(),
+  hasMore: z.boolean(), nextCursor: z.string().nullable(),
+  sort: z.enum(['priority:desc', 'createdAt:asc', 'confidence:desc']),
+  filters: z.object({
+    caseType: reviewCaseTypeSchema.nullable(), sourceKey: z.string().nullable(), reasonCode: z.string().nullable(),
+    priority: reviewPrioritySchema.nullable(), confidenceBand: reviewConfidenceBandSchema.nullable(),
+    age: z.enum(['over24h', 'over7d', 'over30d']).nullable(), state: reviewStateSchema,
+    assignee: z.enum(['assigned', 'unassigned']).nullable(),
+  }),
+  filterOptions: z.object({
+    caseTypes: z.array(reviewCaseTypeSchema), states: z.array(reviewStateSchema), priorities: z.array(reviewPrioritySchema),
+    confidenceBands: z.array(reviewConfidenceBandSchema), ageBands: z.array(z.enum(['over24h', 'over7d', 'over30d'])),
+    sources: z.array(z.string()), reasons: z.array(z.string()), assignees: z.array(z.string()),
+  }),
+});
+
+const candidateSchema = z.object({
+  publicId: z.string(), name: z.string(), lifecycleState: z.string(), score: z.number().min(0).max(1),
+  method: z.enum(['identifier_exact', 'exact_match_key', 'name_token_similarity']),
+  identifiers: z.array(z.object({ kind: z.string(), value: z.string() })),
+  fields: z.array(z.object({ path: z.string(), value: z.unknown(), confidence: z.number(), freshnessExpiresAt: z.string().nullable() })),
+});
+
+export const dataPlatformReviewDetailSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'), generatedAt: z.string(),
+  case: z.object({
+    publicId: z.string().regex(/^review_[0-9a-f]{32}$/), caseType: reviewCaseTypeSchema,
+    priority: reviewPrioritySchema, state: reviewStateSchema, reasonCodes: z.array(z.string()),
+    assignee: z.string().nullable(), context: z.record(z.string(), z.unknown()),
+    resolution: z.record(z.string(), z.unknown()).nullable(), ageSeconds: z.number().nonnegative(),
+    confidence: z.number().min(0).max(1).nullable(), confidenceBand: reviewConfidenceBandSchema,
+    risk: z.enum(['low', 'medium', 'high']), createdAt: z.string(), updatedAt: z.string(), resolvedAt: z.string().nullable(),
+  }),
+  evidence: z.object({
+    publicId: z.string(), sourceRecordId: z.string().nullable(), candidateName: z.string().nullable(), candidateKind: z.string().nullable(),
+    observedAt: z.string().nullable(), collectedAt: z.string().nullable(), collectionMethod: z.string().nullable(),
+    publicationStatus: z.string().nullable(), evidenceUrl: z.string().nullable(),
+    observedFields: z.record(z.string(), z.unknown()), stableIdentifiers: z.array(z.object({ kind: z.string(), key: z.string() })),
+  }).nullable(),
+  source: z.object({
+    key: z.string(), name: z.string().nullable(), type: z.string().nullable(), authorityLevel: z.string().nullable(),
+    accessMethod: z.string().nullable(), baseUrl: z.string().nullable(), termsUrl: z.string().nullable(), licence: z.string().nullable(),
+    rightsReviewStatus: z.string().nullable(), productionIngestionStatus: z.string().nullable(), defaultUsageClass: z.string().nullable(),
+    allowedPurposes: z.array(z.string()), attributionRequired: z.boolean(), attribution: z.string().nullable(),
+    storagePolicy: z.string().nullable(), refreshPolicy: z.string().nullable(), policyEffectiveAt: z.string().nullable(), policyExpiresAt: z.string().nullable(),
+    fieldRights: z.array(z.object({
+      fieldPathPattern: z.string(), usageClass: z.string(), allowedPurposes: z.array(z.string()), attribution: z.string().nullable(),
+      policyBasis: z.string(), effectiveAt: z.string(), expiresAt: z.string().nullable(),
+    })),
+  }).nullable(),
+  candidates: z.array(candidateSchema),
+  contradictions: z.array(z.object({ severity: z.enum(['info', 'warning', 'critical']), code: z.string(), summary: z.string() })),
+  recommendedAction: reviewRecommendationSchema,
+  availableActions: z.object({
+    createNew: z.boolean(), linkExisting: z.boolean(), dismiss: z.boolean(),
+    assignment: z.object({ available: z.literal(false), reason: z.string() }),
+  }),
+});
+
 export type DataPlatformOverview = z.infer<typeof dataPlatformOverviewSchema>;
 export type DataPlatformRunList = z.infer<typeof dataPlatformRunListSchema>;
 export type DataPlatformRunDetail = z.infer<typeof dataPlatformRunDetailSchema>;
+export type DataPlatformReviewList = z.infer<typeof dataPlatformReviewListSchema>;
+export type DataPlatformReviewDetail = z.infer<typeof dataPlatformReviewDetailSchema>;
