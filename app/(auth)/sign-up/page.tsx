@@ -7,6 +7,7 @@ function SignUpContent() {
       title="Create an account"
       description="Create your Twiga account to keep conversations and preferences in sync."
       mode="sign-up"
+      verificationRequired={process.env.AUTH_EMAIL_VERIFICATION_REQUIRED === 'true'}
     />
   );
 }

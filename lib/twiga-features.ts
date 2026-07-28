@@ -6,6 +6,8 @@ const isEnabled = (value: string | undefined) => value === 'true';
  * storage, privacy, cost, and support prerequisites are deliberately completed.
  */
 export const TWIGA_FEATURES = Object.freeze({
+  emailAuth: true,
+  emailDelivery: isEnabled(process.env.NEXT_PUBLIC_AUTH_EMAIL_DELIVERY_ENABLED),
   googleAuth: isEnabled(process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED),
   apps: isEnabled(process.env.NEXT_PUBLIC_MCP_ENABLED),
   youtube: isEnabled(process.env.NEXT_PUBLIC_YOUTUBE_ENABLED),

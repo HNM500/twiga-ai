@@ -1,13 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { parseAsString, useQueryState } from 'nuqs';
-import { Loader2 } from 'lucide-react';
+import { type FormEvent, useState } from 'react';
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { authClient, signIn } from '@/lib/auth-client';
+import { parseAsString, useQueryState } from 'nuqs';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { authClient, signIn, signUp } from '@/lib/auth-client';
 import { TWIGA_FEATURES } from '@/lib/twiga-features';
 
-interface AuthIconProps extends React.ComponentProps<'svg'> {}
+type AuthIconProps = React.ComponentProps<'svg'>;
 
 function GoogleIcon(props: AuthIconProps) {
   return (
@@ -25,105 +29,271 @@ function GoogleIcon(props: AuthIconProps) {
         fill="#FBBC05"
       />
       <path
-        d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 74.414-54.251"
+        d="M130.55 50.479c24.514 0 41.05 10.589 50.479 19.438l36.844-35.974C195.245 12.91 165.798 0 130.55 0 79.49 0 35.393 29.301 13.925 71.947l42.211 32.783c10.59-31.477 39.891-54.251 64.414-54.251"
         fill="#EB4335"
       />
     </svg>
   );
 }
+
 interface AuthCardProps {
   title: string;
   description: string;
   mode?: 'sign-in' | 'sign-up';
+  verificationRequired?: boolean;
 }
 
-export default function AuthCard({ title, description, mode = 'sign-in' }: AuthCardProps) {
+function getErrorMessage(error: { message?: string; code?: string } | null | undefined) {
+  if (!error) return null;
+  if (error.code === 'INVALID_EMAIL_OR_PASSWORD') return 'The email or password is incorrect.';
+  if (error.code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL') return 'An account already exists for this email.';
+  if (error.code === 'EMAIL_NOT_VERIFIED') return 'Please verify your email before signing in.';
+  if (error.code === 'TOO_MANY_REQUESTS') return 'Too many attempts. Please wait a minute and try again.';
+  return error.message || 'We could not complete that request. Please try again.';
+}
+
+function localRedirect(value: string) {
+  return value.startsWith('/') && !value.startsWith('//') ? value : '/';
+}
+
+export default function AuthCard({
+  title,
+  description,
+  mode = 'sign-in',
+  verificationRequired = false,
+}: AuthCardProps) {
   const [redirect] = useQueryState('redirect', parseAsString.withDefault('/'));
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [verificationSent, setVerificationSent] = useState(false);
   const lastMethod = authClient.getLastUsedLoginMethod();
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (mode === 'sign-up') {
+        const result = await signUp.email({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+          callbackURL: localRedirect(redirect),
+        });
+
+        const message = getErrorMessage(result.error);
+        if (message) {
+          setError(message);
+          return;
+        }
+
+        if (verificationRequired) {
+          setVerificationSent(true);
+          return;
+        }
+
+        window.location.assign(localRedirect(redirect));
+        return;
+      }
+
+      const result = await signIn.email({
+        email: email.trim(),
+        password,
+        callbackURL: redirect,
+        rememberMe: true,
+      });
+      const message = getErrorMessage(result.error);
+      if (message) setError(message);
+    } catch {
+      setError('We could not connect to Twiga. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (verificationSent) {
+    return (
+      <div className="mx-auto w-full max-w-sm text-center" role="status">
+        <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <CheckCircle2 className="size-6" />
+        </span>
+        <h1 className="mt-5 font-be-vietnam-pro text-2xl font-medium tracking-tight">Check your email</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          We sent a verification link to <span className="font-medium text-foreground">{email}</span>. Open it to finish
+          creating your Twiga account.
+        </p>
+        <Button asChild variant="outline" className="mt-6 w-full">
+          <Link href="/sign-in">Return to sign in</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-sm">
-      <div className="mb-8 text-center">
-        <h1 className="mb-3 font-be-vietnam-pro text-3xl font-light tracking-tight text-foreground">{title}</h1>
+      <div className="mb-7 text-center">
+        <h1 className="mb-2 font-be-vietnam-pro text-3xl font-light tracking-tight text-foreground">{title}</h1>
         <p className="mx-auto max-w-xs text-sm leading-relaxed text-muted-foreground">{description}</p>
       </div>
 
-      {mode === 'sign-up' ? (
-        <div className="mb-8 flex flex-wrap items-center justify-center gap-2">
-          {['Save conversations', 'Sync preferences', 'Connect Twiga Apps'].map((label) => (
-            <span key={label} className="rounded-full bg-muted/40 px-2.5 py-1 text-[10px] text-muted-foreground">
-              {label}
-            </span>
-          ))}
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        {mode === 'sign-up' ? (
+          <div className="space-y-1.5">
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
+              name="name"
+              autoComplete="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              minLength={2}
+              maxLength={80}
+              required
+              disabled={loading}
+              className="h-11"
+              placeholder="Your name"
+            />
+          </div>
+        ) : null}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            maxLength={254}
+            required
+            disabled={loading}
+            className="h-11"
+            placeholder="you@example.com"
+          />
         </div>
-      ) : null}
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="password">Password</Label>
+            {mode === 'sign-in' && TWIGA_FEATURES.emailDelivery ? (
+              <Link
+                href="/forgot-password"
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Forgot password?
+              </Link>
+            ) : null}
+          </div>
+          <div className="relative">
+            <Input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              minLength={12}
+              maxLength={128}
+              required
+              disabled={loading}
+              className="h-11 pr-11"
+              placeholder={mode === 'sign-up' ? 'At least 12 characters' : 'Your password'}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
+          {mode === 'sign-up' ? <p className="text-xs text-muted-foreground">Use 12 or more characters.</p> : null}
+        </div>
+
+        {error ? (
+          <div
+            className="flex gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive"
+            role="alert"
+          >
+            <AlertCircle className="mt-0.5 size-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        ) : null}
+
+        <Button type="submit" size="lg" className="w-full" disabled={loading}>
+          {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+          {loading ? 'Please wait…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
+        </Button>
+      </form>
 
       {TWIGA_FEATURES.googleAuth ? (
-        <button
-          className="group relative flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-border/60 bg-background text-sm transition-all duration-200 hover:border-foreground/15 hover:bg-muted/30 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={googleLoading}
-          onClick={async () => {
-            await signIn.social(
-              { provider: 'google', callbackURL: redirect },
-              { onRequest: () => setGoogleLoading(true) },
-            );
-          }}
-        >
-          <span className="flex h-5 w-5 items-center justify-center">
-            {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon className="h-4 w-4" />}
-          </span>
-          <span className="font-medium text-foreground/80 transition-colors group-hover:text-foreground">
+        <>
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
+              <span className="bg-background px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="relative w-full"
+            disabled={googleLoading}
+            onClick={async () => {
+              await signIn.social(
+                { provider: 'google', callbackURL: redirect },
+                { onRequest: () => setGoogleLoading(true) },
+              );
+            }}
+          >
+            {googleLoading ? <Loader2 className="size-4 animate-spin" /> : <GoogleIcon className="size-4" />}
             Continue with Google
-          </span>
-          {lastMethod === 'google' ? (
-            <span className="absolute right-3 font-pixel text-[9px] uppercase tracking-wider text-primary/70">
-              Last used
-            </span>
-          ) : null}
-        </button>
-      ) : (
-        <div className="rounded-xl border border-border/60 bg-muted/20 p-4 text-center">
-          <p className="text-sm font-medium text-foreground">Account sign-in is coming soon</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            You can use Twiga without an account while we finish Google sign-in and account data controls.
-          </p>
-          <Link
-            href="/"
-            className="mt-4 inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
-          >
-            Continue to Twiga
-          </Link>
-        </div>
-      )}
-
-      {TWIGA_FEATURES.googleAuth ? (
-        <div className="mt-8 text-center">
-          <span className="text-sm text-muted-foreground">
-            {mode === 'sign-in' ? "Don't have an account? " : 'Already have an account? '}
-          </span>
-          <Link
-            href={
-              mode === 'sign-in'
-                ? `/sign-up${redirect !== '/' ? `?redirect=${encodeURIComponent(redirect)}` : ''}`
-                : `/sign-in${redirect !== '/' ? `?redirect=${encodeURIComponent(redirect)}` : ''}`
-            }
-            className="text-sm font-medium text-foreground underline-offset-4 transition-colors hover:underline"
-          >
-            {mode === 'sign-in' ? 'Sign up' : 'Sign in'}
-          </Link>
-        </div>
+            {lastMethod === 'google' ? (
+              <span className="absolute right-3 text-[10px] text-muted-foreground">Last used</span>
+            ) : null}
+          </Button>
+        </>
       ) : null}
+
+      <div className="mt-6 text-center">
+        <span className="text-sm text-muted-foreground">
+          {mode === 'sign-in' ? "Don't have an account? " : 'Already have an account? '}
+        </span>
+        <Link
+          href={
+            mode === 'sign-in'
+              ? `/sign-up${redirect !== '/' ? `?redirect=${encodeURIComponent(redirect)}` : ''}`
+              : `/sign-in${redirect !== '/' ? `?redirect=${encodeURIComponent(redirect)}` : ''}`
+          }
+          className="text-sm font-medium text-foreground underline-offset-4 transition-colors hover:underline"
+        >
+          {mode === 'sign-in' ? 'Create one' : 'Sign in'}
+        </Link>
+      </div>
 
       <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground">
         By continuing, you agree to our{' '}
-        <Link href="/terms" className="text-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline">
+        <Link href="/terms" className="text-foreground/70 underline-offset-2 hover:text-foreground hover:underline">
           Terms
         </Link>{' '}
         and{' '}
         <Link
           href="/privacy-policy"
-          className="text-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline"
+          className="text-foreground/70 underline-offset-2 hover:text-foreground hover:underline"
         >
           Privacy Policy
         </Link>

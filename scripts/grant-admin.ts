@@ -9,20 +9,28 @@ if (!email || !role || !ADMIN_ROLES.includes(role)) {
   process.exit(1);
 }
 
-const allowlist = new Set((process.env.ADMIN_EMAIL_ALLOWLIST || '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean));
+const allowlist = new Set(
+  (process.env.ADMIN_EMAIL_ALLOWLIST || '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean),
+);
 if (!allowlist.has(email)) {
   console.error('Refusing to grant a role: add this email to ADMIN_EMAIL_ALLOWLIST first.');
   process.exit(1);
 }
 
-const [{ maindb }, { user }] = await Promise.all([
-  import('@/lib/db'),
-  import('@/lib/db/schema'),
-]);
+const [{ maindb }, { user }] = await Promise.all([import('@/lib/db'), import('@/lib/db/schema')]);
 
-const updated = await maindb.update(user).set({ role }).where(eq(user.email, email)).returning({ id: user.id, email: user.email, role: user.role });
+const updated = await maindb
+  .update(user)
+  .set({ role })
+  .where(eq(user.email, email))
+  .returning({ id: user.id, email: user.email, role: user.role });
 if (!updated.length) {
-  console.error('No existing Twiga account matches that email. The staff member must sign in once before a role can be granted.');
+  console.error(
+    'No existing Twiga account matches that email. The staff member must create their Twiga account before a role can be granted.',
+  );
   process.exit(1);
 }
 

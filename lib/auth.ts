@@ -9,10 +9,17 @@ import { account, chat, dodosubscription, payment, session, subscription, user, 
 import { eq } from 'drizzle-orm';
 import { invalidateSessionCacheForToken } from './user-data-server';
 import { adminAccessControl, authRoles } from './admin/permissions';
+import { isAuthEmailConfigured, queueAuthEmail } from './auth-email';
 
-const trustedOrigins = (serverEnv.ALLOWED_ORIGINS || 'http://localhost:3000').split(',')
+const trustedOrigins = (serverEnv.ALLOWED_ORIGINS || 'http://localhost:3000')
+  .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+const emailVerificationRequired = serverEnv.AUTH_EMAIL_VERIFICATION_REQUIRED === 'true';
+
+if (emailVerificationRequired && !isAuthEmailConfigured()) {
+  throw new Error('AUTH_EMAIL_VERIFICATION_REQUIRED needs both RESEND_API_KEY and EMAIL_FROM.');
+}
 
 const googleProvider =
   serverEnv.GOOGLE_CLIENT_ID && serverEnv.GOOGLE_CLIENT_SECRET
@@ -34,6 +41,54 @@ export const auth = betterAuth({
     provider: 'pg',
     schema: { user, session, verification, account },
   }),
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: 12,
+    maxPasswordLength: 128,
+    requireEmailVerification: emailVerificationRequired,
+    revokeSessionsOnPasswordReset: true,
+    resetPasswordTokenExpiresIn: 60 * 60,
+    sendResetPassword: async ({ user: passwordUser, url }) => {
+      queueAuthEmail({ kind: 'password-reset', to: passwordUser.email, name: passwordUser.name, url });
+    },
+    ...(emailVerificationRequired
+      ? {
+          customSyntheticUser: ({
+            coreFields,
+            additionalFields,
+            id,
+          }: {
+            coreFields: Record<string, unknown>;
+            additionalFields: Record<string, unknown>;
+            id: string;
+          }) => ({
+            ...coreFields,
+            role: 'user',
+            banned: false,
+            banReason: null,
+            banExpires: null,
+            ...additionalFields,
+            id,
+          }),
+        }
+      : {}),
+  },
+  emailVerification: {
+    sendOnSignUp: emailVerificationRequired,
+    sendOnSignIn: emailVerificationRequired,
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user: verificationUser, url }) => {
+      queueAuthEmail({ kind: 'verification', to: verificationUser.email, name: verificationUser.name, url });
+    },
+  },
+  account: {
+    accountLinking: {
+      enabled: true,
+      disableImplicitLinking: true,
+      allowDifferentEmails: false,
+      allowUnlinkingAll: false,
+    },
+  },
   socialProviders: googleProvider,
   user: {
     deleteUser: {
@@ -60,6 +115,12 @@ export const auth = betterAuth({
   rateLimit: {
     max: 100,
     window: 60,
+    customRules: {
+      '/sign-in/email': { window: 60, max: 5 },
+      '/sign-up/email': { window: 60, max: 5 },
+      '/request-password-reset': { window: 60, max: 3 },
+      '/send-verification-email': { window: 60, max: 3 },
+    },
   },
   databaseHooks: {
     session: {
