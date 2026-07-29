@@ -22,7 +22,11 @@ import {
   evidenceGroupDetailSchema,
   evidenceGroupListQuerySchema,
   evidenceGroupListSchema,
+  resolutionEvaluationSetDetailSchema,
   resolutionEvaluationSetListSchema,
+  resolutionLabelReviewInputSchema,
+  resolutionLabelReviewResultSchema,
+  type ResolutionLabelReviewInput,
 } from '@/lib/admin/data-platform-contract';
 
 function coreUrl(path: string) {
@@ -185,6 +189,68 @@ export async function getResolutionEvaluationSets(actor: AdminActor) {
   const parsed = resolutionEvaluationSetListSchema.safeParse(body);
   if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible evaluation-set contract');
   return parsed.data;
+}
+
+export async function getResolutionEvaluationSet(actor: AdminActor, publicId: string) {
+  if (!/^resolution_set_[0-9a-f]{32}$/.test(publicId)) throw new AdminAccessError(400, 'Invalid evaluation-set identifier');
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    `/internal/v1/admin/data-platform/resolution-evaluation-sets/${encodeURIComponent(publicId)}`,
+    'data-platform:read',
+  );
+  const parsed = resolutionEvaluationSetDetailSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible evaluation-set detail contract');
+  return parsed.data;
+}
+
+export async function reviewResolutionEvaluationLabel(
+  actor: AdminActor,
+  labelPublicId: string,
+  rawInput: ResolutionLabelReviewInput,
+) {
+  if (!/^resolution_label_[0-9a-f]{32}$/.test(labelPublicId)) throw new AdminAccessError(400, 'Invalid evaluation-label identifier');
+  const input = resolutionLabelReviewInputSchema.parse(rawInput);
+  const requestId = crypto.randomUUID();
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId,
+    actorEmail: actor.email,
+    actorRole: actor.primaryRole,
+    action: `data_platform.resolution_label.${input.decision}.requested`,
+    targetType: 'resolution_evaluation_label',
+    targetId: labelPublicId,
+    reason: input.reason,
+    requestId,
+    beforeState: { latestReviewPublicId: input.expectedLatestReviewPublicId },
+    afterState: null,
+    metadata: { service: 'twiga-core', evidenceReferenceCount: input.evidenceReferences.length },
+  });
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    `/internal/v1/admin/data-platform/resolution-evaluation-labels/${encodeURIComponent(labelPublicId)}/review`,
+    'reviews:write',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+  const parsed = resolutionLabelReviewResultSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible label-review contract');
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId,
+    actorEmail: actor.email,
+    actorRole: actor.primaryRole,
+    action: `data_platform.resolution_label.${input.decision}`,
+    targetType: 'resolution_evaluation_label',
+    targetId: labelPublicId,
+    reason: input.reason,
+    requestId,
+    beforeState: { latestReviewPublicId: input.expectedLatestReviewPublicId },
+    afterState: {
+      latestReviewPublicId: parsed.data.latestReview.publicId,
+      decision: parsed.data.latestReview.decision,
+      effectiveRecommendation: parsed.data.latestReview.effectiveRecommendation,
+      progress: parsed.data.progress,
+    },
+    metadata: { service: 'twiga-core', evidenceReferenceCount: input.evidenceReferences.length },
+  });
+  return { ok: true, requestId, result: parsed.data };
 }
 
 export async function resolveDataPlatformEntityReview(

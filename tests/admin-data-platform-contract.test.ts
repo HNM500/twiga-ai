@@ -16,7 +16,9 @@ import {
   evidenceGroupDetailSchema,
   evidenceGroupListQuerySchema,
   evidenceGroupListSchema,
+  resolutionEvaluationSetDetailSchema,
   resolutionEvaluationSetListSchema,
+  resolutionLabelReviewInputSchema,
 } from '@/lib/admin/data-platform-contract';
 
 const validOverview = {
@@ -219,7 +221,35 @@ describe('Data Platform gateway contract', () => {
     expect(evidenceGroupDetailSchema.safeParse({ ...detail, capabilities: { read: true, groupMutations: true } }).success).toBe(false);
     expect(resolutionEvaluationSetListSchema.safeParse({
       contractVersion: 'admin-data-platform.v1', generatedAt: group.updatedAt, count: 1,
-      evaluationSets: [{ publicId: `resolution_set_${'1'.repeat(32)}`, datasetKey: 'provisional_labels', version: 1, status: 'provisional', sourceKey: 'regulator_import', labelCount: 30, createdAt: group.updatedAt, latestScore: { publicId: `resolution_score_${'1'.repeat(32)}`, shadowRunPublicId: `resolution_run_${'1'.repeat(32)}`, agreementRate: 0.4, evaluatedCount: 30, scoredAt: group.updatedAt, metricSemantics: 'provisional_agreement_only' } }],
+      evaluationSets: [{
+        publicId: `resolution_set_${'1'.repeat(32)}`, datasetKey: 'provisional_labels', version: 1,
+        status: 'provisional', sourceKey: 'regulator_import', labelCount: 30,
+        reviewProgress: { pendingCount: 30, confirmedCount: 0, correctedCount: 0, rejectedCount: 0, acceptedCount: 0, readyForConfirmation: false },
+        createdAt: group.updatedAt, detailHref: `/data-platform/resolution-quality/resolution_set_${'1'.repeat(32)}`,
+        capabilities: { read: true, reviewLabels: true, confirmSet: false },
+        latestScore: { publicId: `resolution_score_${'1'.repeat(32)}`, shadowRunPublicId: `resolution_run_${'1'.repeat(32)}`, agreementRate: 0.4, evaluatedCount: 30, scoredAt: group.updatedAt, metricSemantics: 'provisional_agreement_only' },
+      }],
     }).success).toBe(true);
+    const setDetail = {
+      contractVersion: 'admin-data-platform.v1', generatedAt: group.updatedAt,
+      evaluationSet: { publicId: `resolution_set_${'1'.repeat(32)}`, datasetKey: 'provisional_labels', version: 1, status: 'provisional', sourceKey: 'regulator_import', notes: null, createdBy: 'operator', createdAt: group.updatedAt },
+      progress: { labelCount: 1, pendingCount: 1, confirmedCount: 0, correctedCount: 0, rejectedCount: 0, acceptedCount: 0, readyForConfirmation: false },
+      labels: [{
+        publicId: `resolution_label_${'1'.repeat(32)}`, reviewPublicId: `review_${'1'.repeat(32)}`, lane: 'exact',
+        subjectSnapshot: { candidateName: 'Example', privateConnectorToken: 'must-not-cross-gateway' }, originalRecommendation: 'link_existing', rationale: 'Provisional rationale', evidenceReferences: [],
+        actualRecommendation: 'hold_for_review', actualConfidence: 0.7, reviewState: 'pending', effectiveRecommendation: 'link_existing', latestReview: null, createdAt: group.updatedAt,
+      }],
+      capabilities: { read: true, reviewLabels: true, confirmSet: false },
+    };
+    const parsedDetail = resolutionEvaluationSetDetailSchema.parse(setDetail);
+    expect(parsedDetail.labels[0]?.subjectSnapshot).toEqual({ candidateName: 'Example' });
+    expect(resolutionLabelReviewInputSchema.safeParse({
+      decision: 'confirm', reason: 'Confirmed from regulator evidence.',
+      evidenceReferences: [{ kind: 'review_case', reference: `review_${'1'.repeat(32)}` }],
+      expectedLatestReviewPublicId: null,
+    }).success).toBe(true);
+    expect(resolutionLabelReviewInputSchema.safeParse({
+      decision: 'confirm', reason: 'Missing evidence reference.', evidenceReferences: [], expectedLatestReviewPublicId: null,
+    }).success).toBe(false);
   });
 });
