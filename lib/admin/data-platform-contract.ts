@@ -433,12 +433,36 @@ export const evidenceGroupDetailSchema = z.object({
   capabilities: z.object({ read: z.literal(true), groupMutations: z.literal(false) }),
 });
 
+const resolutionRecommendationSchema = z.enum([
+  'link_existing', 'create_provisional', 'enrich_then_retry', 'hold_for_review', 'not_product_eligible',
+]);
+const resolutionReviewProgressSchema = z.object({
+  pendingCount: z.number().int().nonnegative(), confirmedCount: z.number().int().nonnegative(),
+  correctedCount: z.number().int().nonnegative(), rejectedCount: z.number().int().nonnegative(),
+  acceptedCount: z.number().int().nonnegative(), readyForConfirmation: z.boolean(),
+});
+const resolutionLabelEvidenceReferenceSchema = z.object({
+  kind: z.enum(['url', 'source_observation', 'review_case', 'document', 'note']),
+  reference: z.string().min(1).max(2_048), note: z.string().min(1).max(500).optional(),
+}).strict();
+const resolutionEvaluationCapabilitiesSchema = z.object({
+  read: z.literal(true), reviewLabels: z.boolean(), confirmSet: z.literal(false),
+});
+const resolutionSubjectSnapshotSchema = z.object({
+  candidateName: z.string().optional(), organizationName: z.string().optional(), name: z.string().optional(),
+  legalName: z.string().optional(), providerName: z.string().optional(), topCandidate: z.string().optional(),
+  sourceRecordId: z.string().optional(), observationPublicId: z.string().optional(), groupPublicId: z.string().optional(),
+  worksheetLabel: z.string().optional(), score: z.number().optional(),
+});
+
 export const resolutionEvaluationSetListSchema = z.object({
   contractVersion: z.literal('admin-data-platform.v1'), generatedAt: z.string(),
   evaluationSets: z.array(z.object({
-    publicId: z.string(), datasetKey: z.string(), version: z.number().int().positive(),
+    publicId: z.string().regex(/^resolution_set_[0-9a-f]{32}$/), datasetKey: z.string(), version: z.number().int().positive(),
     status: z.enum(['draft', 'provisional', 'confirmed', 'retired']), sourceKey: z.string().nullable(),
-    labelCount: z.number().int().nonnegative(), createdAt: z.string(),
+    labelCount: z.number().int().nonnegative(), reviewProgress: resolutionReviewProgressSchema,
+    createdAt: z.string(), detailHref: z.string().startsWith('/data-platform/resolution-quality/'),
+    capabilities: resolutionEvaluationCapabilitiesSchema,
     latestScore: z.object({
       publicId: z.string(), shadowRunPublicId: z.string().nullable(), agreementRate: z.number().min(0).max(1).nullable(),
       evaluatedCount: z.number().int().nonnegative(), scoredAt: z.string().nullable(),
@@ -446,6 +470,64 @@ export const resolutionEvaluationSetListSchema = z.object({
     }).nullable(),
   })),
   count: z.number().int().nonnegative(),
+});
+
+const resolutionLabelLatestReviewSchema = z.object({
+  publicId: z.string().regex(/^resolution_label_review_[0-9a-f]{32}$/),
+  decision: z.enum(['confirm', 'correct', 'reject']),
+  correctedRecommendation: resolutionRecommendationSchema.nullable(),
+  effectiveRecommendation: resolutionRecommendationSchema.nullable(),
+  rationale: z.string(), evidenceReferences: z.array(resolutionLabelEvidenceReferenceSchema),
+  reviewedBy: z.string(), reviewedAt: z.string(),
+});
+
+export const resolutionEvaluationSetDetailSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'), generatedAt: z.string(),
+  evaluationSet: z.object({
+    publicId: z.string().regex(/^resolution_set_[0-9a-f]{32}$/), datasetKey: z.string(),
+    version: z.number().int().positive(), status: z.enum(['draft', 'provisional', 'confirmed', 'retired']),
+    sourceKey: z.string().nullable(), notes: z.string().nullable(), createdBy: z.string(), createdAt: z.string(),
+  }),
+  progress: resolutionReviewProgressSchema.extend({ labelCount: z.number().int().nonnegative() }),
+  labels: z.array(z.object({
+    publicId: z.string().regex(/^resolution_label_[0-9a-f]{32}$/),
+    reviewPublicId: z.string().regex(/^review_[0-9a-f]{32}$/), lane: z.string(),
+    subjectSnapshot: resolutionSubjectSnapshotSchema, originalRecommendation: resolutionRecommendationSchema,
+    rationale: z.string(), evidenceReferences: z.array(resolutionLabelEvidenceReferenceSchema),
+    actualRecommendation: resolutionRecommendationSchema.nullable(), actualConfidence: z.number().min(0).max(1).nullable(),
+    reviewState: z.enum(['pending', 'confirm', 'correct', 'reject']),
+    effectiveRecommendation: resolutionRecommendationSchema.nullable(),
+    latestReview: resolutionLabelLatestReviewSchema.nullable(), createdAt: z.string(),
+  })),
+  capabilities: resolutionEvaluationCapabilitiesSchema,
+});
+
+export const resolutionLabelReviewInputSchema = z.object({
+  decision: z.enum(['confirm', 'correct', 'reject']),
+  correctedRecommendation: resolutionRecommendationSchema.optional(),
+  reason: z.string().trim().min(8).max(2_000),
+  evidenceReferences: z.array(resolutionLabelEvidenceReferenceSchema).max(20),
+  expectedLatestReviewPublicId: z.union([
+    z.string().regex(/^resolution_label_review_[0-9a-f]{32}$/), z.null(),
+  ]),
+}).strict().superRefine((value, context) => {
+  if (value.decision === 'correct' && !value.correctedRecommendation) {
+    context.addIssue({ code: 'custom', path: ['correctedRecommendation'], message: 'A correction is required' });
+  }
+  if (value.decision !== 'correct' && value.correctedRecommendation) {
+    context.addIssue({ code: 'custom', path: ['correctedRecommendation'], message: 'Only corrections can change the recommendation' });
+  }
+  if (value.decision !== 'reject' && value.evidenceReferences.length === 0) {
+    context.addIssue({ code: 'custom', path: ['evidenceReferences'], message: 'Evidence is required' });
+  }
+});
+
+export const resolutionLabelReviewResultSchema = z.object({
+  evaluationSetPublicId: z.string().regex(/^resolution_set_[0-9a-f]{32}$/),
+  labelPublicId: z.string().regex(/^resolution_label_[0-9a-f]{32}$/),
+  latestReview: resolutionLabelLatestReviewSchema,
+  progress: resolutionReviewProgressSchema.extend({ labelCount: z.number().int().nonnegative() }),
+  capabilities: z.object({ reviewLabels: z.literal(true), confirmSet: z.literal(false) }),
 });
 
 export type DataPlatformOverview = z.infer<typeof dataPlatformOverviewSchema>;
@@ -460,3 +542,5 @@ export type DataPlatformSourceDetail = z.infer<typeof dataPlatformSourceDetailSc
 export type EvidenceGroupList = z.infer<typeof evidenceGroupListSchema>;
 export type EvidenceGroupDetail = z.infer<typeof evidenceGroupDetailSchema>;
 export type ResolutionEvaluationSetList = z.infer<typeof resolutionEvaluationSetListSchema>;
+export type ResolutionEvaluationSetDetail = z.infer<typeof resolutionEvaluationSetDetailSchema>;
+export type ResolutionLabelReviewInput = z.infer<typeof resolutionLabelReviewInputSchema>;

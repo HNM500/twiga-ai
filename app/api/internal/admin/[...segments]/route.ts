@@ -31,9 +31,12 @@ import {
   getDataPlatformSources,
   getDataPlatformEvidenceGroup,
   getDataPlatformEvidenceGroups,
+  getResolutionEvaluationSet,
   getResolutionEvaluationSets,
+  reviewResolutionEvaluationLabel,
   resolveDataPlatformEntityReview,
 } from '@/lib/admin/data-platform';
+import { resolutionLabelReviewInputSchema } from '@/lib/admin/data-platform-contract';
 
 export const dynamic = 'force-dynamic';
 
@@ -171,7 +174,8 @@ export async function GET(request: Request, context: { params: Promise<{ segment
           )));
         }
         if (segments[1] === 'resolution-evaluation-sets') {
-          if (segments[2] || url.search) return Response.json({ error: 'Invalid evaluation-set request' }, { status: 400 });
+          if (segments[3] || url.search) return Response.json({ error: 'Invalid evaluation-set request' }, { status: 400 });
+          if (segments[2]) return Response.json(await getResolutionEvaluationSet(actor, segments[2]));
           return Response.json(await getResolutionEvaluationSets(actor));
         }
         return Response.json(await getDataPlatformOverview(actor));
@@ -219,6 +223,15 @@ export async function POST(request: Request, context: { params: Promise<{ segmen
       if (!body.success) return Response.json({ error: 'A valid resolution and audit reason are required' }, { status: 400 });
       const result = await resolveDataPlatformEntityReview(actor, segments[2], body.data);
       logOperationalEvent('admin_mutation_completed', { action: `data_platform.entity_match.${body.data.action}`, requestId: result.requestId });
+      return Response.json(result);
+    }
+    if (segments[0] === 'data-platform' && segments[1] === 'resolution-evaluation-labels'
+      && segments[2] && segments[3] === 'review' && !segments[4]) {
+      const actor = await authorizeAdminRequest(request, 'data-platform:write');
+      const body = resolutionLabelReviewInputSchema.safeParse(await request.json().catch(() => null));
+      if (!body.success) return Response.json({ error: 'A valid label review, evidence and audit reason are required' }, { status: 400 });
+      const result = await reviewResolutionEvaluationLabel(actor, segments[2], body.data);
+      logOperationalEvent('admin_mutation_completed', { action: `data_platform.resolution_label.${body.data.decision}`, requestId: result.requestId });
       return Response.json(result);
     }
     return Response.json({ error: 'Not found' }, { status: 404 });
