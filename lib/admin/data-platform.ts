@@ -7,12 +7,18 @@ import { adminAuditLog } from '@/lib/db/schema';
 import { AdminAccessError, type AdminActor } from '@/lib/admin/security';
 import {
   dataPlatformOverviewSchema,
+  dataPlatformOrganizationDetailSchema,
+  dataPlatformOrganizationListQuerySchema,
+  dataPlatformOrganizationListSchema,
   dataPlatformRunDetailSchema,
   dataPlatformRunListQuerySchema,
   dataPlatformRunListSchema,
   dataPlatformReviewDetailSchema,
   dataPlatformReviewListQuerySchema,
   dataPlatformReviewListSchema,
+  dataPlatformSourceDetailSchema,
+  dataPlatformSourceListQuerySchema,
+  dataPlatformSourceListSchema,
 } from '@/lib/admin/data-platform-contract';
 
 function coreUrl(path: string) {
@@ -95,6 +101,54 @@ export async function getDataPlatformReview(actor: AdminActor, publicId: string)
   );
   const parsed = dataPlatformReviewDetailSchema.safeParse(body);
   if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible review-detail contract');
+  return parsed.data;
+}
+
+export async function getDataPlatformOrganizations(actor: AdminActor, rawInput: Record<string, string | undefined>) {
+  const input = dataPlatformOrganizationListQuerySchema.parse(rawInput);
+  const url = coreUrl('/internal/v1/admin/data-platform/organizations');
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
+  const body = await coreAdminRequest<unknown>(actor, `${url.pathname}${url.search}`, 'data-platform:read');
+  const parsed = dataPlatformOrganizationListSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible organization-list contract');
+  return parsed.data;
+}
+
+export async function getDataPlatformOrganization(actor: AdminActor, publicId: string) {
+  if (!/^org_[0-9a-f]{32}$/.test(publicId)) throw new AdminAccessError(400, 'Invalid organization identifier');
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    `/internal/v1/admin/data-platform/organizations/${encodeURIComponent(publicId)}`,
+    'data-platform:read',
+  );
+  const parsed = dataPlatformOrganizationDetailSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible organization-detail contract');
+  return parsed.data;
+}
+
+export async function getDataPlatformSources(actor: AdminActor, rawInput: Record<string, string | undefined>) {
+  const input = dataPlatformSourceListQuerySchema.parse(rawInput);
+  const url = coreUrl('/internal/v1/admin/data-platform/sources');
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
+  const body = await coreAdminRequest<unknown>(actor, `${url.pathname}${url.search}`, 'data-platform:read');
+  const parsed = dataPlatformSourceListSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible source-list contract');
+  return parsed.data;
+}
+
+export async function getDataPlatformSource(actor: AdminActor, sourceKey: string) {
+  if (!/^[a-z][a-z0-9_]{2,63}$/.test(sourceKey)) throw new AdminAccessError(400, 'Invalid source identifier');
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    `/internal/v1/admin/data-platform/sources/${encodeURIComponent(sourceKey)}`,
+    'data-platform:read',
+  );
+  const parsed = dataPlatformSourceDetailSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible source-detail contract');
   return parsed.data;
 }
 

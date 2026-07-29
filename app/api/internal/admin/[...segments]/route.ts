@@ -20,11 +20,15 @@ import {
 } from '@/lib/admin/data';
 import { logOperationalError, logOperationalEvent } from '@/lib/observability';
 import {
+  getDataPlatformOrganization,
+  getDataPlatformOrganizations,
   getDataPlatformReview,
   getDataPlatformReviews,
   getDataPlatformOverview,
   getDataPlatformRun,
   getDataPlatformRuns,
+  getDataPlatformSource,
+  getDataPlatformSources,
   resolveDataPlatformEntityReview,
 } from '@/lib/admin/data-platform';
 
@@ -133,6 +137,24 @@ export async function GET(request: Request, context: { params: Promise<{ segment
           const unknownKeys = [...url.searchParams.keys()].filter((key) => !allowedKeys.includes(key as typeof allowedKeys[number]));
           if (unknownKeys.length) return Response.json({ error: 'Unknown review-queue filter' }, { status: 400 });
           return Response.json(await getDataPlatformReviews(actor, Object.fromEntries(
+            allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
+          )));
+        }
+        if (segments[1] === 'organizations') {
+          if (segments[2]) return Response.json(await getDataPlatformOrganization(actor, segments[2]));
+          const allowedKeys = ['query', 'entityKind', 'operatingStatus', 'lifecycleState', 'category', 'region', 'readinessProduct', 'cursor', 'limit', 'sort'] as const;
+          const unknownKeys = [...url.searchParams.keys()].filter((key) => !allowedKeys.includes(key as typeof allowedKeys[number]));
+          if (unknownKeys.length) return Response.json({ error: 'Unknown organization-list filter' }, { status: 400 });
+          return Response.json(await getDataPlatformOrganizations(actor, Object.fromEntries(
+            allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
+          )));
+        }
+        if (segments[1] === 'sources') {
+          if (segments[2]) return Response.json(await getDataPlatformSource(actor, segments[2]));
+          const allowedKeys = ['sourceType', 'authorityLevel', 'rightsReviewStatus', 'productionIngestionStatus', 'connectorState', 'cursor', 'limit', 'sort'] as const;
+          const unknownKeys = [...url.searchParams.keys()].filter((key) => !allowedKeys.includes(key as typeof allowedKeys[number]));
+          if (unknownKeys.length) return Response.json({ error: 'Unknown source-list filter' }, { status: 400 });
+          return Response.json(await getDataPlatformSources(actor, Object.fromEntries(
             allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
           )));
         }

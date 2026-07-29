@@ -7,6 +7,12 @@ import {
   dataPlatformReviewDetailSchema,
   dataPlatformReviewListQuerySchema,
   dataPlatformReviewListSchema,
+  dataPlatformOrganizationDetailSchema,
+  dataPlatformOrganizationListQuerySchema,
+  dataPlatformOrganizationListSchema,
+  dataPlatformSourceDetailSchema,
+  dataPlatformSourceListQuerySchema,
+  dataPlatformSourceListSchema,
 } from '@/lib/admin/data-platform-contract';
 
 const validOverview = {
@@ -125,5 +131,60 @@ describe('Data Platform gateway contract', () => {
     expect(dataPlatformReviewDetailSchema.safeParse(detail).success).toBe(true);
     expect(dataPlatformReviewDetailSchema.safeParse({ ...detail, case: { ...detail.case, confidence: 1.2 } }).success).toBe(false);
     expect(dataPlatformReviewDetailSchema.safeParse({ ...detail, availableActions: { ...detail.availableActions, assignment: { available: true, reason: 'Drift.' } } }).success).toBe(false);
+  });
+
+  test('accepts bounded business lists and fails closed on invented readiness states', () => {
+    const organization = {
+      publicId: `org_${'1'.repeat(32)}`, canonicalName: 'Example Tanzania Limited', entityKind: 'legal_entity',
+      operatingStatus: 'active', lifecycleState: 'review', version: 1, selectedFieldCount: 2, confidence: 0.91,
+      freshness: { state: 'fresh', staleFieldCount: 0, nextExpiryAt: '2026-08-28T12:00:00.000Z' },
+      openReviewCount: 1, productReadiness: [{ profileKey: 'directory_ready', status: 'review_required', evaluatedAt: '2026-07-28T12:00:00.000Z', expiresAt: null, blockingReasonCodes: ['review_open'] }],
+      updatedAt: '2026-07-28T12:00:00.000Z',
+    };
+    const list = {
+      contractVersion: 'admin-data-platform.v1', generatedAt: '2026-07-28T12:00:00.000Z', organizations: [organization],
+      count: 1, total: 101, hasMore: true, nextCursor: 'cursor', sort: 'updatedAt:desc',
+      filters: { query: null, entityKind: null, operatingStatus: null, lifecycleState: null, category: null, region: null, readinessProduct: null },
+      filterOptions: { entityKinds: ['legal_entity'], operatingStatuses: ['active'], lifecycleStates: ['review'], categories: [], regions: [], readinessProducts: ['directory_ready'] },
+    };
+    expect(dataPlatformOrganizationListSchema.safeParse(list).success).toBe(true);
+    expect(dataPlatformOrganizationListQuerySchema.safeParse({ query: 'Example', limit: '100', sort: 'canonicalName:asc' }).success).toBe(true);
+    expect(dataPlatformOrganizationListQuerySchema.safeParse({ invented: 'yes' }).success).toBe(false);
+    expect(dataPlatformOrganizationListSchema.safeParse({ ...list, organizations: [{ ...organization, productReadiness: [{ ...organization.productReadiness[0], status: 'probably_ready' }] }] }).success).toBe(false);
+  });
+
+  test('accepts evidence-rich business detail only when unsupported mutations stay unavailable', () => {
+    const unavailable = { available: false, reason: 'Requires an audited Core command.' } as const;
+    const detail = {
+      contractVersion: 'admin-data-platform.v1', generatedAt: '2026-07-28T12:00:00.000Z',
+      organization: { publicId: `org_${'1'.repeat(32)}`, canonicalName: 'Example Tanzania Limited', entityKind: 'legal_entity', countryCode: 'TZ', operatingStatus: 'active', lifecycleState: 'review', version: 1, createdAt: '2026-07-28T10:00:00.000Z', updatedAt: '2026-07-28T12:00:00.000Z', archivedAt: null },
+      names: [], categories: [], services: [], locations: [], servicePoints: [], relationships: [], licences: [], canonicalFields: [], alternativeObservations: [], conflicts: [], productReadiness: [], reviews: [], history: [],
+      availableActions: { publish: unavailable, merge: unavailable, split: unavailable, enrich: unavailable },
+    };
+    expect(dataPlatformOrganizationDetailSchema.safeParse(detail).success).toBe(true);
+    expect(dataPlatformOrganizationDetailSchema.safeParse({ ...detail, availableActions: { ...detail.availableActions, publish: { available: true, reason: 'Drift.' } } }).success).toBe(false);
+  });
+
+  test('accepts source registry and detail while rejecting private configuration drift', () => {
+    const source = { sourceKey: 'tcra_licensed_providers', name: 'TCRA Licensed Providers', sourceType: 'regulator', authorityLevel: 'primary', rightsReviewStatus: 'approved', productionIngestionStatus: 'approved', defaultUsageClass: 'public_display', connectorState: 'enabled', observationCount: 100, lastObservedAt: '2026-07-28T12:00:00.000Z', latestRunState: 'completed', latestRunAt: '2026-07-28T12:00:00.000Z' };
+    expect(dataPlatformSourceListSchema.safeParse({
+      contractVersion: 'admin-data-platform.v1', generatedAt: '2026-07-28T12:00:00.000Z', sources: [source], count: 1, total: 1, hasMore: false, nextCursor: null, sort: 'name:asc',
+      filters: { sourceType: null, authorityLevel: null, rightsReviewStatus: null, productionIngestionStatus: null, connectorState: null },
+      filterOptions: { sourceTypes: ['regulator'], authorityLevels: ['primary'], rightsReviewStatuses: ['approved'], productionIngestionStatuses: ['approved'], connectorStates: ['enabled'] },
+    }).success).toBe(true);
+    expect(dataPlatformSourceListQuerySchema.safeParse({ connectorState: 'enabled', limit: '100' }).success).toBe(true);
+    expect(dataPlatformSourceListQuerySchema.safeParse({ secret: 'yes' }).success).toBe(false);
+    const unavailable = { available: false, reason: 'Requires an audited Core command.' } as const;
+    const detail = {
+      contractVersion: 'admin-data-platform.v1', generatedAt: '2026-07-28T12:00:00.000Z',
+      source: { key: source.sourceKey, name: source.name, type: source.sourceType, jurisdiction: 'Tanzania', authorityLevel: source.authorityLevel, accessMethod: 'file_import', baseUrl: null, termsUrl: null, licence: 'public register', notes: null, createdAt: '2026-07-28T10:00:00.000Z', updatedAt: '2026-07-28T12:00:00.000Z' },
+      rightsPolicy: { reviewStatus: 'approved', productionIngestionStatus: 'approved', defaultUsageClass: 'public_display', effectiveAt: '2026-07-28T10:00:00.000Z', expiresAt: null },
+      fieldPolicies: [], permittedPurposes: ['admin_review'], retention: { storagePolicy: 'retain', rawRetentionDays: 30 }, attribution: { required: false, text: null },
+      connectorConfigs: [{ key: 'tcra_import', enabled: true, scheduleExpression: null, parserVersion: '1', requestsPerMinute: 10, maxAttempts: 3, baseBackoffSeconds: 30, processingProfile: 'universal', privateConfigurationStored: true, createdAt: '2026-07-28T10:00:00.000Z', updatedAt: '2026-07-28T12:00:00.000Z' }],
+      checkpoints: [], recentRuns: [], qualityMetrics: { observations: 100, targetedObservations: 90, linkedObservations: 80, openReviews: 10, failedRuns24h: 0, lastObservedAt: '2026-07-28T12:00:00.000Z' }, cost: { estimatedByCurrency: [] },
+      availableActions: { dryRun: unavailable, import: unavailable, editPolicy: unavailable, editSchedule: unavailable },
+    };
+    expect(dataPlatformSourceDetailSchema.safeParse(detail).success).toBe(true);
+    expect(dataPlatformSourceDetailSchema.safeParse({ ...detail, connectorConfigs: [{ ...detail.connectorConfigs[0], privateConfigurationStored: false, configuration: { token: 'leak' } }] }).success).toBe(false);
   });
 });
