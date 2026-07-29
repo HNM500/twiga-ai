@@ -368,6 +368,86 @@ export const dataPlatformSourceDetailSchema = z.object({
   availableActions: z.object({ dryRun: unavailableActionSchema, import: unavailableActionSchema, editPolicy: unavailableActionSchema, editSchedule: unavailableActionSchema }),
 });
 
+const evidenceGroupRoleSchema = z.enum([
+  'legal_entity', 'operating_business', 'brand', 'person', 'regulator', 'government_body',
+  'ngo', 'association', 'educational_institution', 'informal_business', 'supporting_record', 'unknown',
+]);
+const localityPostureSchema = z.enum(['tanzania_evidence', 'foreign_evidence', 'conflicting_evidence', 'unknown', 'not_applicable']);
+
+export const evidenceGroupListQuerySchema = z.object({
+  sourceKey: z.string().trim().min(1).max(120).optional(),
+  entityRole: evidenceGroupRoleSchema.optional(),
+  localityPosture: localityPostureSchema.optional(),
+  query: z.string().trim().min(2).max(120).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+}).strict();
+
+const evidenceGroupPostureSchema = z.object({
+  entityRole: evidenceGroupRoleSchema,
+  locality: localityPostureSchema,
+  productEligibility: z.enum(['review_required', 'not_eligible', 'unknown']),
+  confidence: z.number().min(0).max(1),
+  reasonCodes: z.array(z.string()),
+});
+
+export const evidenceGroupListSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'), generatedAt: z.string(),
+  groups: z.array(z.object({
+    publicId: z.string().regex(/^evidence_group_[0-9a-f]{32}$/), representativeName: z.string(),
+    subjectKind: z.enum(['organization', 'person', 'supporting_record']), groupingKeyKind: z.string(),
+    source: z.object({ key: z.string(), name: z.string() }).nullable(),
+    memberCount: z.number().int().nonnegative(), openCaseCount: z.number().int().nonnegative(),
+    licenceCount: z.number().int().nonnegative(), posture: evidenceGroupPostureSchema.nullable(),
+    recommendationCounts: z.record(z.string(), z.number().int().nonnegative()), updatedAt: z.string(),
+    impactPreviewHref: z.string().startsWith('/data-platform/evidence-groups/'),
+  })),
+  count: z.number().int().nonnegative(),
+  filters: z.object({
+    sourceKey: z.string().nullable(), entityRole: evidenceGroupRoleSchema.nullable(),
+    localityPosture: localityPostureSchema.nullable(), query: z.string().nullable(),
+  }),
+  capabilities: z.object({ read: z.literal(true), groupMutations: z.literal(false) }),
+});
+
+export const evidenceGroupDetailSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'), generatedAt: z.string(),
+  group: z.object({
+    publicId: z.string().regex(/^evidence_group_[0-9a-f]{32}$/), representativeName: z.string(),
+    subjectKind: z.enum(['organization', 'person', 'supporting_record']), groupingKeyKind: z.string(),
+    groupingKeyDisplay: z.string(), groupingPolicyVersion: z.string(),
+    source: z.object({ key: z.string(), name: z.string() }).nullable(), updatedAt: z.string(),
+  }),
+  posture: evidenceGroupPostureSchema.extend({
+    publicId: z.string(), policyVersion: z.string(), evidence: z.record(z.string(), z.unknown()), assessedAt: z.string(),
+  }).nullable(),
+  impactPreview: z.object({
+    members: z.array(z.object({
+      observationPublicId: z.string(), candidateName: z.string(), candidateKind: z.string(),
+      sourceRecordId: z.string().nullable(), observedFields: z.record(z.string(), z.unknown()),
+      membershipReason: z.string(), reviewPublicId: z.string().nullable(), reviewState: z.string().nullable(),
+      recommendation: z.string().nullable(), confidence: z.number().min(0).max(1).nullable(),
+      licencePublicId: z.string().nullable(), licenceNumber: z.string().nullable(), licenceType: z.string().nullable(),
+    })),
+    observationCount: z.number().int().nonnegative(), openReviewIds: z.array(z.string()), licenceIds: z.array(z.string()),
+  }),
+  capabilities: z.object({ read: z.literal(true), groupMutations: z.literal(false) }),
+});
+
+export const resolutionEvaluationSetListSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'), generatedAt: z.string(),
+  evaluationSets: z.array(z.object({
+    publicId: z.string(), datasetKey: z.string(), version: z.number().int().positive(),
+    status: z.enum(['draft', 'provisional', 'confirmed', 'retired']), sourceKey: z.string().nullable(),
+    labelCount: z.number().int().nonnegative(), createdAt: z.string(),
+    latestScore: z.object({
+      publicId: z.string(), shadowRunPublicId: z.string().nullable(), agreementRate: z.number().min(0).max(1).nullable(),
+      evaluatedCount: z.number().int().nonnegative(), scoredAt: z.string().nullable(),
+      metricSemantics: z.enum(['confirmed_quality_evaluation', 'provisional_agreement_only']),
+    }).nullable(),
+  })),
+  count: z.number().int().nonnegative(),
+});
+
 export type DataPlatformOverview = z.infer<typeof dataPlatformOverviewSchema>;
 export type DataPlatformRunList = z.infer<typeof dataPlatformRunListSchema>;
 export type DataPlatformRunDetail = z.infer<typeof dataPlatformRunDetailSchema>;
@@ -377,3 +457,6 @@ export type DataPlatformOrganizationList = z.infer<typeof dataPlatformOrganizati
 export type DataPlatformOrganizationDetail = z.infer<typeof dataPlatformOrganizationDetailSchema>;
 export type DataPlatformSourceList = z.infer<typeof dataPlatformSourceListSchema>;
 export type DataPlatformSourceDetail = z.infer<typeof dataPlatformSourceDetailSchema>;
+export type EvidenceGroupList = z.infer<typeof evidenceGroupListSchema>;
+export type EvidenceGroupDetail = z.infer<typeof evidenceGroupDetailSchema>;
+export type ResolutionEvaluationSetList = z.infer<typeof resolutionEvaluationSetListSchema>;

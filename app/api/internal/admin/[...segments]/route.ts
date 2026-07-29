@@ -29,6 +29,9 @@ import {
   getDataPlatformRuns,
   getDataPlatformSource,
   getDataPlatformSources,
+  getDataPlatformEvidenceGroup,
+  getDataPlatformEvidenceGroups,
+  getResolutionEvaluationSets,
   resolveDataPlatformEntityReview,
 } from '@/lib/admin/data-platform';
 
@@ -157,6 +160,19 @@ export async function GET(request: Request, context: { params: Promise<{ segment
           return Response.json(await getDataPlatformSources(actor, Object.fromEntries(
             allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
           )));
+        }
+        if (segments[1] === 'evidence-groups') {
+          if (segments[2]) return Response.json(await getDataPlatformEvidenceGroup(actor, segments[2]));
+          const allowedKeys = ['sourceKey', 'entityRole', 'localityPosture', 'query', 'limit'] as const;
+          const unknownKeys = [...url.searchParams.keys()].filter((key) => !allowedKeys.includes(key as typeof allowedKeys[number]));
+          if (unknownKeys.length) return Response.json({ error: 'Unknown evidence-group filter' }, { status: 400 });
+          return Response.json(await getDataPlatformEvidenceGroups(actor, Object.fromEntries(
+            allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
+          )));
+        }
+        if (segments[1] === 'resolution-evaluation-sets') {
+          if (segments[2] || url.search) return Response.json({ error: 'Invalid evaluation-set request' }, { status: 400 });
+          return Response.json(await getResolutionEvaluationSets(actor));
         }
         return Response.json(await getDataPlatformOverview(actor));
       default: return Response.json({ error: 'Not found' }, { status: 404 });
