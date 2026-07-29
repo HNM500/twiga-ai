@@ -19,6 +19,10 @@ import {
   dataPlatformSourceDetailSchema,
   dataPlatformSourceListQuerySchema,
   dataPlatformSourceListSchema,
+  evidenceGroupDetailSchema,
+  evidenceGroupListQuerySchema,
+  evidenceGroupListSchema,
+  resolutionEvaluationSetListSchema,
 } from '@/lib/admin/data-platform-contract';
 
 function coreUrl(path: string) {
@@ -149,6 +153,37 @@ export async function getDataPlatformSource(actor: AdminActor, sourceKey: string
   );
   const parsed = dataPlatformSourceDetailSchema.safeParse(body);
   if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible source-detail contract');
+  return parsed.data;
+}
+
+export async function getDataPlatformEvidenceGroups(actor: AdminActor, rawInput: Record<string, string | undefined>) {
+  const input = evidenceGroupListQuerySchema.parse(rawInput);
+  const url = coreUrl('/internal/v1/admin/data-platform/evidence-groups');
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
+  const body = await coreAdminRequest<unknown>(actor, `${url.pathname}${url.search}`, 'data-platform:read');
+  const parsed = evidenceGroupListSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible evidence-group contract');
+  return parsed.data;
+}
+
+export async function getDataPlatformEvidenceGroup(actor: AdminActor, publicId: string) {
+  if (!/^evidence_group_[0-9a-f]{32}$/.test(publicId)) throw new AdminAccessError(400, 'Invalid evidence group identifier');
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    `/internal/v1/admin/data-platform/evidence-groups/${encodeURIComponent(publicId)}`,
+    'data-platform:read',
+  );
+  const parsed = evidenceGroupDetailSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible evidence-group detail contract');
+  return parsed.data;
+}
+
+export async function getResolutionEvaluationSets(actor: AdminActor) {
+  const body = await coreAdminRequest<unknown>(actor, '/internal/v1/admin/data-platform/resolution-evaluation-sets', 'data-platform:read');
+  const parsed = resolutionEvaluationSetListSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible evaluation-set contract');
   return parsed.data;
 }
 

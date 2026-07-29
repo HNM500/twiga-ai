@@ -13,6 +13,10 @@ import {
   dataPlatformSourceDetailSchema,
   dataPlatformSourceListQuerySchema,
   dataPlatformSourceListSchema,
+  evidenceGroupDetailSchema,
+  evidenceGroupListQuerySchema,
+  evidenceGroupListSchema,
+  resolutionEvaluationSetListSchema,
 } from '@/lib/admin/data-platform-contract';
 
 const validOverview = {
@@ -186,5 +190,36 @@ describe('Data Platform gateway contract', () => {
     };
     expect(dataPlatformSourceDetailSchema.safeParse(detail).success).toBe(true);
     expect(dataPlatformSourceDetailSchema.safeParse({ ...detail, connectorConfigs: [{ ...detail.connectorConfigs[0], privateConfigurationStored: false, configuration: { token: 'leak' } }] }).success).toBe(false);
+  });
+
+  test('accepts read-only evidence groups and provisional evaluation semantics', () => {
+    const group = {
+      publicId: `evidence_group_${'1'.repeat(32)}`, representativeName: 'Example Networks Limited',
+      subjectKind: 'organization', groupingKeyKind: 'regulator_record',
+      source: { key: 'regulator_import', name: 'Regulator import' }, memberCount: 2, openCaseCount: 2, licenceCount: 2,
+      posture: { entityRole: 'legal_entity', locality: 'unknown', productEligibility: 'review_required', confidence: 0.6, reasonCodes: ['no_explicit_country_evidence'] },
+      recommendationCounts: { hold_for_review: 2 }, updatedAt: '2026-07-29T12:00:00.000Z',
+      impactPreviewHref: `/data-platform/evidence-groups/evidence_group_${'1'.repeat(32)}`,
+    };
+    expect(evidenceGroupListSchema.safeParse({
+      contractVersion: 'admin-data-platform.v1', generatedAt: '2026-07-29T12:00:00.000Z', groups: [group], count: 1,
+      filters: { sourceKey: null, entityRole: null, localityPosture: null, query: null },
+      capabilities: { read: true, groupMutations: false },
+    }).success).toBe(true);
+    expect(evidenceGroupListQuerySchema.safeParse({ localityPosture: 'foreign_evidence', limit: '100' }).success).toBe(true);
+    expect(evidenceGroupListQuerySchema.safeParse({ mutation: 'merge' }).success).toBe(false);
+    const detail = {
+      contractVersion: 'admin-data-platform.v1', generatedAt: '2026-07-29T12:00:00.000Z',
+      group: { publicId: group.publicId, representativeName: group.representativeName, subjectKind: 'organization', groupingKeyKind: 'regulator_record', groupingKeyDisplay: 'source:organization:regulator_record:key', groupingPolicyVersion: 'v1', source: group.source, updatedAt: group.updatedAt },
+      posture: { publicId: `group_assessment_${'1'.repeat(32)}`, policyVersion: 'v1', ...group.posture, evidence: {}, assessedAt: group.updatedAt },
+      impactPreview: { members: [], observationCount: 0, openReviewIds: [], licenceIds: [] },
+      capabilities: { read: true, groupMutations: false },
+    };
+    expect(evidenceGroupDetailSchema.safeParse(detail).success).toBe(true);
+    expect(evidenceGroupDetailSchema.safeParse({ ...detail, capabilities: { read: true, groupMutations: true } }).success).toBe(false);
+    expect(resolutionEvaluationSetListSchema.safeParse({
+      contractVersion: 'admin-data-platform.v1', generatedAt: group.updatedAt, count: 1,
+      evaluationSets: [{ publicId: `resolution_set_${'1'.repeat(32)}`, datasetKey: 'provisional_labels', version: 1, status: 'provisional', sourceKey: 'regulator_import', labelCount: 30, createdAt: group.updatedAt, latestScore: { publicId: `resolution_score_${'1'.repeat(32)}`, shadowRunPublicId: `resolution_run_${'1'.repeat(32)}`, agreementRate: 0.4, evaluatedCount: 30, scoredAt: group.updatedAt, metricSemantics: 'provisional_agreement_only' } }],
+    }).success).toBe(true);
   });
 });
