@@ -8,9 +8,8 @@ import {
   serviceSecretIsValid,
   type AdminPermission,
 } from '@/lib/admin/security-primitives';
+import { isAdminSessionFresh } from '@/lib/admin/session-policy';
 export type { AdminPermission } from '@/lib/admin/security-primitives';
-
-const ADMIN_SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
 
 export interface AdminActor {
   userId: string;
@@ -55,8 +54,7 @@ export async function authorizeAdminRequest(request: Request, permission: AdminP
     throw new AdminAccessError(403, 'Your administrator role does not permit this action');
   }
 
-  const createdAt = new Date(current.session.createdAt).getTime();
-  if (!Number.isFinite(createdAt) || Date.now() - createdAt > ADMIN_SESSION_MAX_AGE_MS) {
+  if (!isAdminSessionFresh(current.session)) {
     throw new AdminAccessError(401, 'Administrator session expired; sign in again');
   }
 

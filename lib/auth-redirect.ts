@@ -7,6 +7,10 @@ const SESSION_COOKIE_NAMES = new Set([
 
 export type RequestCookie = { name: string; value: string };
 
+export function isSessionCookieName(name: string) {
+  return SESSION_COOKIE_NAMES.has(name);
+}
+
 export function resolvePublicAuthOrigin(requestUrl: string, configuredBaseUrl = '') {
   if (configuredBaseUrl) {
     try {
@@ -52,7 +56,16 @@ export function resolveTrustedAuthRedirect(requestUrl: string, configuredOrigins
 }
 
 export function getSessionRequestCookie(cookies: RequestCookie[]) {
-  return cookies.find((cookie) => SESSION_COOKIE_NAMES.has(cookie.name)) ?? null;
+  return cookies.find((cookie) => isSessionCookieName(cookie.name)) ?? null;
+}
+
+export function isAdminReauthenticationRequest(requestUrl: string, configuredOrigins = '') {
+  const request = new URL(requestUrl);
+  return (
+    request.pathname === '/sign-in' &&
+    request.searchParams.get('reauth') === 'admin' &&
+    Boolean(resolveTrustedAuthRedirect(requestUrl, configuredOrigins))
+  );
 }
 
 export function isCookieDomainTarget(target: URL, cookieDomain: string) {

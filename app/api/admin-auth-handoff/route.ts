@@ -6,6 +6,7 @@ import {
   resolvePublicAuthOrigin,
   resolveTrustedAuthRedirect,
 } from '@/lib/auth-redirect';
+import { isAdminSessionFresh } from '@/lib/admin/session-policy';
 import { auth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +23,13 @@ function expireSessionCookie(response: NextResponse, cookie: { name: string }, s
   });
 }
 
+function adminSignInUrl(publicOrigin: string, target: URL) {
+  const signIn = new URL('/sign-in', publicOrigin);
+  signIn.searchParams.set('redirect', target.toString());
+  signIn.searchParams.set('reauth', 'admin');
+  return signIn;
+}
+
 export async function GET(request: NextRequest) {
   const publicOrigin = resolvePublicAuthOrigin(request.url, process.env.BETTER_AUTH_BASE_URL);
   const target = resolveTrustedAuthRedirect(request.url, process.env.ALLOWED_ORIGINS);
@@ -31,6 +39,27 @@ export async function GET(request: NextRequest) {
   const cookieDomain = process.env.AUTH_COOKIE_DOMAIN?.trim() || '';
   const sessionCookie = getSessionRequestCookie(request.cookies.getAll());
   const secure = new URL(publicOrigin).protocol === 'https:';
+
+  const clearingStaleSharedCookie = request.nextUrl.searchParams.get('reauth') === 'shared';
+  if (clearingStaleSharedCookie && (!session || !isAdminSessionFresh(session.session))) {
+    const response = NextResponse.redirect(adminSignInUrl(publicOrigin, target));
+    if (sessionCookie && cookieDomain) expireSessionCookie(response, sessionCookie, secure, cookieDomain);
+    return response;
+  }
+
+  if (session && !isAdminSessionFresh(session.session)) {
+    const responseTarget = cookieDomain
+      ? new URL('/api/admin-auth-handoff', publicOrigin)
+      : adminSignInUrl(publicOrigin, target);
+    if (cookieDomain) {
+      responseTarget.searchParams.set('redirect', target.toString());
+      responseTarget.searchParams.set('reauth', 'shared');
+    }
+
+    const response = NextResponse.redirect(responseTarget);
+    if (sessionCookie) expireSessionCookie(response, sessionCookie, secure);
+    return response;
+  }
 
   if (!session) {
     const clearingSharedCookie = request.nextUrl.searchParams.get('clear') === 'shared';
@@ -47,7 +76,8 @@ export async function GET(request: NextRequest) {
     const signIn = new URL('/sign-in', publicOrigin);
     signIn.searchParams.set('redirect', target.toString());
     const response = NextResponse.redirect(signIn);
-    if (sessionCookie) expireSessionCookie(response, sessionCookie, secure, clearingSharedCookie ? cookieDomain : undefined);
+    if (sessionCookie)
+      expireSessionCookie(response, sessionCookie, secure, clearingSharedCookie ? cookieDomain : undefined);
     return response;
   }
 

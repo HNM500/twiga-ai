@@ -3,11 +3,14 @@ import { NextRequest } from 'next/server';
 
 import {
   getSessionRequestCookie,
+  isAdminReauthenticationRequest,
+  isSessionCookieName,
   isCookieDomainTarget,
   resolvePublicAuthOrigin,
   resolveTrustedAuthRedirect,
 } from '@/lib/auth-redirect';
 import { proxy } from '@/proxy';
+import { ADMIN_SESSION_MAX_AGE_MS, isAdminSessionFresh } from '@/lib/admin/session-policy';
 
 const origins = 'https://twiga.ai,https://admin.twiga.ai';
 const originalAllowedOrigins = process.env.ALLOWED_ORIGINS;
@@ -64,6 +67,32 @@ describe('authenticated redirects', () => {
     expect(getSessionRequestCookie([{ name: 'better-auth.session_token', value: 'local-token' }])?.value).toBe(
       'local-token',
     );
+    expect(isSessionCookieName('__Secure-better-auth.session_token')).toBe(true);
+    expect(isSessionCookieName('attacker-cookie')).toBe(false);
+  });
+
+  test('enforces the eight-hour administrator session age', () => {
+    const now = Date.parse('2026-08-01T12:00:00.000Z');
+    expect(isAdminSessionFresh({ createdAt: new Date(now - ADMIN_SESSION_MAX_AGE_MS) }, now)).toBe(true);
+    expect(isAdminSessionFresh({ createdAt: new Date(now - ADMIN_SESSION_MAX_AGE_MS - 1) }, now)).toBe(false);
+    expect(isAdminSessionFresh({ createdAt: 'invalid' }, now)).toBe(false);
+  });
+
+  test('allows only trusted administrator reauthentication requests through the auth guard', async () => {
+    const target = encodeURIComponent('https://admin.twiga.ai/');
+    const requestUrl = `https://twiga.ai/sign-in?redirect=${target}&reauth=admin`;
+    expect(isAdminReauthenticationRequest(requestUrl, origins)).toBe(true);
+    expect(
+      isAdminReauthenticationRequest(
+        `https://twiga.ai/sign-in?redirect=${encodeURIComponent('https://attacker.example')}&reauth=admin`,
+        origins,
+      ),
+    ).toBe(false);
+
+    const response = await proxy(
+      new NextRequest(requestUrl, { headers: { cookie: '__Secure-better-auth.session_token=stale-token' } }),
+    );
+    expect(response.status).toBe(200);
   });
 
   test('limits shared cookies to the configured parent domain', () => {

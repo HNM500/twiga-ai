@@ -63,6 +63,7 @@ export default function AuthCard({
   verificationRequired = false,
 }: AuthCardProps) {
   const [redirect] = useQueryState('redirect', parseAsString.withDefault('/'));
+  const [reauth] = useQueryState('reauth', parseAsString.withDefault(''));
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -143,6 +144,11 @@ export default function AuthCard({
       </div>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
+        {mode === 'sign-in' && reauth === 'admin' ? (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-foreground" role="status">
+            For Admin security, confirm your account by signing in again.
+          </div>
+        ) : null}
         {mode === 'sign-up' ? (
           <div className="space-y-1.5">
             <Label htmlFor="name">Name</Label>

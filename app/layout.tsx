@@ -106,7 +106,7 @@ export default async function RootLayout({
             </SidebarProvider>
           </Providers>
         </NuqsAdapter>
-        <ClientAnalytics />
+        {process.env.VERCEL === '1' ? <ClientAnalytics /> : null}
       </body>
     </html>
   );
