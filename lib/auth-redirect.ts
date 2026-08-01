@@ -7,6 +7,18 @@ const SESSION_COOKIE_NAMES = new Set([
 
 export type RequestCookie = { name: string; value: string };
 
+export function resolvePublicAuthOrigin(requestUrl: string, configuredBaseUrl = '') {
+  if (configuredBaseUrl) {
+    try {
+      const configured = new URL(configuredBaseUrl);
+      if (configured.protocol === 'http:' || configured.protocol === 'https:') return configured.origin;
+    } catch {
+      // Fall back to the request origin when configuration is absent or invalid.
+    }
+  }
+  return new URL(requestUrl).origin;
+}
+
 export function resolveTrustedAuthRedirect(requestUrl: string, configuredOrigins = '') {
   const request = new URL(requestUrl);
   const rawRedirect = request.searchParams.get('redirect');

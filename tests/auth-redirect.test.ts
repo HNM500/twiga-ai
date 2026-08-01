@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { NextRequest } from 'next/server';
 
-import { getSessionRequestCookie, isCookieDomainTarget, resolveTrustedAuthRedirect } from '@/lib/auth-redirect';
+import {
+  getSessionRequestCookie,
+  isCookieDomainTarget,
+  resolvePublicAuthOrigin,
+  resolveTrustedAuthRedirect,
+} from '@/lib/auth-redirect';
 import { proxy } from '@/proxy';
 
 const origins = 'https://twiga.ai,https://admin.twiga.ai';
@@ -19,6 +24,13 @@ describe('authenticated redirects', () => {
   test('allows the configured admin origin', () => {
     const request = `https://twiga.ai/sign-in?redirect=${encodeURIComponent('https://admin.twiga.ai/data-platform')}`;
     expect(resolveTrustedAuthRedirect(request, origins)?.toString()).toBe('https://admin.twiga.ai/data-platform');
+  });
+
+  test('uses the configured public auth origin behind Railway forwarding', () => {
+    expect(resolvePublicAuthOrigin('http://0.0.0.0:8080/api/admin-auth-handoff', 'https://twiga.ai')).toBe(
+      'https://twiga.ai',
+    );
+    expect(resolvePublicAuthOrigin('https://twiga.ai/sign-in', 'not-a-url')).toBe('https://twiga.ai');
   });
 
   test('allows same-origin paths', () => {

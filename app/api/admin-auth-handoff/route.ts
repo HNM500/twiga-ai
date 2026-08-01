@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getSessionRequestCookie, isCookieDomainTarget, resolveTrustedAuthRedirect } from '@/lib/auth-redirect';
+import {
+  getSessionRequestCookie,
+  isCookieDomainTarget,
+  resolvePublicAuthOrigin,
+  resolveTrustedAuthRedirect,
+} from '@/lib/auth-redirect';
 import { auth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -21,14 +26,15 @@ function clearSessionCookies(response: NextResponse, request: NextRequest, cooki
 }
 
 export async function GET(request: NextRequest) {
+  const publicOrigin = resolvePublicAuthOrigin(request.url, process.env.BETTER_AUTH_BASE_URL);
   const target = resolveTrustedAuthRedirect(request.url, process.env.ALLOWED_ORIGINS);
-  if (!target) return NextResponse.redirect(new URL('/', request.url));
+  if (!target) return NextResponse.redirect(new URL('/', publicOrigin));
 
   const session = await auth.api.getSession({ headers: request.headers });
   const cookieDomain = process.env.AUTH_COOKIE_DOMAIN?.trim() || '';
 
   if (!session) {
-    const signIn = new URL('/sign-in', request.url);
+    const signIn = new URL('/sign-in', publicOrigin);
     signIn.searchParams.set('redirect', target.toString());
     const response = NextResponse.redirect(signIn);
     clearSessionCookies(response, request, cookieDomain);
