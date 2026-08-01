@@ -567,6 +567,7 @@ const externalEvidenceStateSchema = z.enum(['queued', 'running', 'completed', 'n
 const externalEvidenceRequestSchema = z.object({
   publicId: z.string().regex(/^external_evidence_request_[0-9a-f]{32}$/),
   url: z.string().url(), submittedBy: z.string(), reason: z.string(), state: externalEvidenceStateSchema,
+  origin: z.enum(['admin', 'recurring']),
   attemptCount: z.number().int().nonnegative(), maxAttempts: z.number().int().positive(),
   candidateCount: z.number().int().nonnegative(), providerKey: z.string(),
   providerUsage: z.record(z.string(), z.unknown()),
@@ -623,6 +624,8 @@ export const acquisitionSettingsUpdateSchema = z.object({
 export const acquisitionDomainPolicyInputSchema = z.object({
   hostname: z.string().trim().toLowerCase().min(3).max(253)
     .regex(/^(?=.{3,253}$)(?!-)(?:[a-z0-9-]+\.)+[a-z]{2,63}$/),
+  startUrl: z.string().trim().url().max(2_048),
+  recurringMode: z.enum(['dry_run', 'live']),
   expectedVersion: z.number().int().positive().nullable(),
   reason: z.string().trim().min(8).max(500),
   enabled: z.boolean(),
@@ -633,7 +636,11 @@ export const acquisitionDomainPolicyInputSchema = z.object({
   requestsPerMinute: z.number().int().min(1).max(600).nullable(),
   maxPagesPerRun: z.number().int().min(1).max(10_000).nullable(),
   recrawlIntervalDays: z.number().int().min(1).max(3_650).nullable(),
-}).strict();
+}).strict().superRefine((value, context) => {
+  if (new URL(value.startUrl).hostname.toLowerCase() !== value.hostname) {
+    context.addIssue({ code: 'custom', path: ['startUrl'], message: 'Start URL must belong to the configured hostname' });
+  }
+});
 
 const acquisitionSettingsRecordSchema = z.object({
   publicId: z.string().regex(/^acquisition_policy_[0-9a-f]{32}$/),
@@ -649,11 +656,17 @@ const acquisitionDomainPolicySchema = z.object({
   enabled: z.boolean(),
   singlePageEnabled: z.boolean(),
   recurringEnabled: z.boolean(),
+  startUrl: z.string().url(),
+  recurringMode: z.enum(['dry_run', 'live']),
   rightsStatus: z.enum(['pending', 'approved', 'approved_with_conditions', 'blocked']),
   robotsStatus: z.enum(['unknown', 'allowed', 'restricted', 'blocked']),
   requestsPerMinute: z.number().int().nullable(),
   maxPagesPerRun: z.number().int().nullable(),
   recrawlIntervalDays: z.number().int().nullable(),
+  nextDueAt: z.string().nullable(),
+  lastSchedulerDecision: z.enum(['dry_run', 'queued']).nullable(),
+  lastScheduledAt: z.string().nullable(),
+  eligibility: z.object({ ready: z.boolean(), code: z.string(), label: z.string() }),
   version: z.number().int().positive(),
   updatedBy: z.string(),
   updatedAt: z.string(),
@@ -666,7 +679,25 @@ export const acquisitionPoliciesSchema = z.object({
   queue: z.object({ queued: z.number().int().nonnegative(), oldestQueuedMinutes: z.number().int().nonnegative().nullable(), alerting: z.boolean() }),
   capabilities: z.object({
     currentPipeline: z.array(z.string()),
-    preparedForRecurringCollector: z.array(z.string()),
+    recurringCollector: z.array(z.string()),
+    preparedForMultiPageCollector: z.array(z.string()),
+  }),
+  scheduler: z.object({
+    enabled: z.boolean(),
+    scope: z.literal('reviewed_start_page'),
+    due: z.number().int().nonnegative(),
+    blocked: z.number().int().nonnegative(),
+    dryRunDomains: z.number().int().nonnegative(),
+    liveDomains: z.number().int().nonnegative(),
+    recentDecisions: z.array(z.object({
+      publicId: z.string().regex(/^schedule_decision_[0-9a-f]{32}$/),
+      hostname: z.string(),
+      decision: z.enum(['dry_run', 'queued']),
+      startUrl: z.string().url(),
+      requestPublicId: z.string().regex(/^external_evidence_request_[0-9a-f]{32}$/).nullable(),
+      scheduledFor: z.string(),
+      createdAt: z.string(),
+    })),
   }),
   generatedAt: z.string(),
 });
