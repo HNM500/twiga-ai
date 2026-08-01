@@ -33,10 +33,14 @@ import {
   getDataPlatformEvidenceGroups,
   getResolutionEvaluationSet,
   getResolutionEvaluationSets,
+  confirmResolutionEvaluationSet,
   reviewResolutionEvaluationLabel,
   resolveDataPlatformEntityReview,
 } from '@/lib/admin/data-platform';
-import { resolutionLabelReviewInputSchema } from '@/lib/admin/data-platform-contract';
+import {
+  resolutionEvaluationSetConfirmationInputSchema,
+  resolutionLabelReviewInputSchema,
+} from '@/lib/admin/data-platform-contract';
 
 export const dynamic = 'force-dynamic';
 
@@ -232,6 +236,15 @@ export async function POST(request: Request, context: { params: Promise<{ segmen
       if (!body.success) return Response.json({ error: 'A valid label review, evidence and audit reason are required' }, { status: 400 });
       const result = await reviewResolutionEvaluationLabel(actor, segments[2], body.data);
       logOperationalEvent('admin_mutation_completed', { action: `data_platform.resolution_label.${body.data.decision}`, requestId: result.requestId });
+      return Response.json(result);
+    }
+    if (segments[0] === 'data-platform' && segments[1] === 'resolution-evaluation-sets'
+      && segments[2] && segments[3] === 'confirm' && !segments[4]) {
+      const actor = await authorizeAdminRequest(request, 'data-platform:write');
+      const body = resolutionEvaluationSetConfirmationInputSchema.safeParse(await request.json().catch(() => null));
+      if (!body.success) return Response.json({ error: 'A current reviewed set and audit reason are required' }, { status: 400 });
+      const result = await confirmResolutionEvaluationSet(actor, segments[2], body.data);
+      logOperationalEvent('admin_mutation_completed', { action: 'data_platform.resolution_evaluation_set.confirm', requestId: result.requestId });
       return Response.json(result);
     }
     return Response.json({ error: 'Not found' }, { status: 404 });

@@ -23,9 +23,12 @@ import {
   evidenceGroupListQuerySchema,
   evidenceGroupListSchema,
   resolutionEvaluationSetDetailSchema,
+  resolutionEvaluationSetConfirmationInputSchema,
+  resolutionEvaluationSetConfirmationResultSchema,
   resolutionEvaluationSetListSchema,
   resolutionLabelReviewInputSchema,
   resolutionLabelReviewResultSchema,
+  type ResolutionEvaluationSetConfirmationInput,
   type ResolutionLabelReviewInput,
 } from '@/lib/admin/data-platform-contract';
 
@@ -52,7 +55,10 @@ async function coreAdminRequest<T>(actor: AdminActor, path: string, scope: 'data
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     const status = response.status >= 500 ? 502 : response.status;
-    throw new AdminAccessError(status, typeof body.error === 'string' ? body.error : 'Twiga Data Platform request failed');
+    const message = typeof body.message === 'string'
+      ? body.message
+      : typeof body.error === 'string' ? body.error : 'Twiga Data Platform request failed';
+    throw new AdminAccessError(status, message);
   }
   return body as T;
 }
@@ -249,6 +255,57 @@ export async function reviewResolutionEvaluationLabel(
       progress: parsed.data.progress,
     },
     metadata: { service: 'twiga-core', evidenceReferenceCount: input.evidenceReferences.length },
+  });
+  return { ok: true, requestId, result: parsed.data };
+}
+
+export async function confirmResolutionEvaluationSet(
+  actor: AdminActor,
+  setPublicId: string,
+  rawInput: ResolutionEvaluationSetConfirmationInput,
+) {
+  if (!/^resolution_set_[0-9a-f]{32}$/.test(setPublicId)) throw new AdminAccessError(400, 'Invalid evaluation-set identifier');
+  const input = resolutionEvaluationSetConfirmationInputSchema.parse(rawInput);
+  const requestId = crypto.randomUUID();
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId,
+    actorEmail: actor.email,
+    actorRole: actor.primaryRole,
+    action: 'data_platform.resolution_evaluation_set.confirm.requested',
+    targetType: 'resolution_evaluation_set',
+    targetId: setPublicId,
+    reason: input.reason,
+    requestId,
+    beforeState: { status: 'provisional', reviewVersion: input.expectedReviewVersion },
+    afterState: null,
+    metadata: { service: 'twiga-core' },
+  });
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    `/internal/v1/admin/data-platform/resolution-evaluation-sets/${encodeURIComponent(setPublicId)}/confirm`,
+    'reviews:write',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+  const parsed = resolutionEvaluationSetConfirmationResultSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible evaluation-set confirmation contract');
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId,
+    actorEmail: actor.email,
+    actorRole: actor.primaryRole,
+    action: 'data_platform.resolution_evaluation_set.confirm',
+    targetType: 'resolution_evaluation_set',
+    targetId: setPublicId,
+    reason: input.reason,
+    requestId,
+    beforeState: { status: 'provisional', reviewVersion: input.expectedReviewVersion },
+    afterState: {
+      status: parsed.data.evaluationSet.status,
+      confirmedAt: parsed.data.evaluationSet.confirmedAt,
+      acceptedCount: parsed.data.progress.acceptedCount,
+      rejectedCount: parsed.data.progress.rejectedCount,
+      latestScorePublicId: parsed.data.latestScore?.publicId ?? null,
+    },
+    metadata: { service: 'twiga-core' },
   });
   return { ok: true, requestId, result: parsed.data };
 }
