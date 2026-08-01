@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionCookie } from 'better-auth/cookies';
+import { resolveTrustedAuthRedirect } from '@/lib/auth-redirect';
 
 const authRoutes = ['/sign-in', '/sign-up'];
 const protectedRoutes = ['/settings', '/searches'];
@@ -24,9 +25,13 @@ export async function proxy(request: NextRequest) {
 
   // If user is authenticated but trying to access auth routes
   if (sessionCookie && authRoutes.some((route) => pathname.startsWith(route))) {
-    console.log('Redirecting to home');
-    console.log('Session cookie: ', sessionCookie);
-    return NextResponse.redirect(new URL('/', request.url));
+    const target = resolveTrustedAuthRedirect(request.url, process.env.ALLOWED_ORIGINS);
+    if (target && target.origin !== request.nextUrl.origin) {
+      const handoff = new URL('/api/admin-auth-handoff', request.url);
+      handoff.searchParams.set('redirect', target.toString());
+      return NextResponse.redirect(handoff);
+    }
+    return NextResponse.redirect(target || new URL('/', request.url));
   }
 
   if (!sessionCookie && protectedRoutes.some((route) => pathname.startsWith(route))) {
