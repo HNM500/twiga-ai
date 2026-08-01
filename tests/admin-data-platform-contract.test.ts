@@ -16,6 +16,10 @@ import {
   evidenceGroupDetailSchema,
   evidenceGroupListQuerySchema,
   evidenceGroupListSchema,
+  externalEvidenceListQuerySchema,
+  externalEvidenceListSchema,
+  externalEvidenceRequestInputSchema,
+  externalEvidenceSubmitResultSchema,
   resolutionEvaluationSetDetailSchema,
   resolutionEvaluationSetConfirmationInputSchema,
   resolutionEvaluationSetConfirmationResultSchema,
@@ -282,5 +286,30 @@ describe('Data Platform gateway contract', () => {
       },
       capabilities: { reviewLabels: false, confirmSet: false },
     }).success).toBe(true);
+  });
+
+  test('accepts only bounded external evidence intake contracts', () => {
+    const request = {
+      publicId: `external_evidence_request_${'1'.repeat(32)}`,
+      url: 'https://example.co.tz/about', submittedBy: 'twiga-admin:user-1',
+      reason: 'Investigate this public company page', state: 'queued',
+      attemptCount: 0, maxAttempts: 3, candidateCount: 0, providerKey: 'firecrawl',
+      providerUsage: {}, error: null, runPublicId: null, submissionPublicId: null,
+      requestedAt: '2026-08-01T12:00:00.000Z', startedAt: null, completedAt: null,
+      updatedAt: '2026-08-01T12:00:00.000Z',
+    };
+    expect(externalEvidenceListSchema.safeParse({
+      contractVersion: 'admin-data-platform.v1',
+      requests: [request], count: 1, filters: { state: null }, generatedAt: '2026-08-01T12:00:00.000Z',
+    }).success).toBe(true);
+    expect(externalEvidenceSubmitResultSchema.safeParse({
+      contractVersion: 'admin-data-platform.v1', request, created: true,
+    }).success).toBe(true);
+    expect(externalEvidenceRequestInputSchema.safeParse({
+      url: 'https://example.co.tz/about', reason: 'Investigate this public company page', idempotencyKey: 'request-12345',
+    }).success).toBe(true);
+    expect(externalEvidenceListQuerySchema.safeParse({ state: 'queued', limit: '100' }).success).toBe(true);
+    expect(externalEvidenceListQuerySchema.safeParse({ state: 'invented' }).success).toBe(false);
+    expect(externalEvidenceListQuerySchema.safeParse({ secret: 'must-not-pass' }).success).toBe(false);
   });
 });

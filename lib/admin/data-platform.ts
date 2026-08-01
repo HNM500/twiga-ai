@@ -22,6 +22,10 @@ import {
   evidenceGroupDetailSchema,
   evidenceGroupListQuerySchema,
   evidenceGroupListSchema,
+  externalEvidenceListQuerySchema,
+  externalEvidenceListSchema,
+  externalEvidenceRequestInputSchema,
+  externalEvidenceSubmitResultSchema,
   resolutionEvaluationSetDetailSchema,
   resolutionEvaluationSetConfirmationInputSchema,
   resolutionEvaluationSetConfirmationResultSchema,
@@ -30,13 +34,14 @@ import {
   resolutionLabelReviewResultSchema,
   type ResolutionEvaluationSetConfirmationInput,
   type ResolutionLabelReviewInput,
+  type ExternalEvidenceRequestInput,
 } from '@/lib/admin/data-platform-contract';
 
 function coreUrl(path: string) {
   return new URL(path, serverEnv.TWIGA_CORE_URL.endsWith('/') ? serverEnv.TWIGA_CORE_URL : `${serverEnv.TWIGA_CORE_URL}/`);
 }
 
-async function coreAdminRequest<T>(actor: AdminActor, path: string, scope: 'data-platform:read' | 'reviews:read' | 'reviews:write', init?: RequestInit) {
+async function coreAdminRequest<T>(actor: AdminActor, path: string, scope: 'data-platform:read' | 'data-platform:write' | 'reviews:read' | 'reviews:write', init?: RequestInit) {
   const response = await fetch(coreUrl(path), {
     ...init,
     headers: {
@@ -176,6 +181,58 @@ export async function getDataPlatformEvidenceGroups(actor: AdminActor, rawInput:
   const parsed = evidenceGroupListSchema.safeParse(body);
   if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible evidence-group contract');
   return parsed.data;
+}
+
+export async function getExternalEvidenceRequests(actor: AdminActor, rawInput: Record<string, string | undefined>) {
+  const input = externalEvidenceListQuerySchema.parse(rawInput);
+  const url = coreUrl('/internal/v1/admin/data-platform/external-evidence');
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
+  const body = await coreAdminRequest<unknown>(actor, `${url.pathname}${url.search}`, 'data-platform:read');
+  const parsed = externalEvidenceListSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible external-evidence contract');
+  return parsed.data;
+}
+
+export async function submitExternalEvidenceRequest(actor: AdminActor, rawInput: ExternalEvidenceRequestInput) {
+  const input = externalEvidenceRequestInputSchema.parse(rawInput);
+  const requestId = crypto.randomUUID();
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId,
+    actorEmail: actor.email,
+    actorRole: actor.primaryRole,
+    action: 'data_platform.external_evidence.requested',
+    targetType: 'external_evidence_request',
+    targetId: input.idempotencyKey,
+    reason: input.reason,
+    requestId,
+    beforeState: null,
+    afterState: null,
+    metadata: { service: 'twiga-core', hostname: new URL(input.url).hostname },
+  });
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    '/internal/v1/admin/data-platform/external-evidence',
+    'data-platform:write',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+  const parsed = externalEvidenceSubmitResultSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible external-evidence result');
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId,
+    actorEmail: actor.email,
+    actorRole: actor.primaryRole,
+    action: parsed.data.created ? 'data_platform.external_evidence.queued' : 'data_platform.external_evidence.replayed',
+    targetType: 'external_evidence_request',
+    targetId: parsed.data.request.publicId,
+    reason: input.reason,
+    requestId,
+    beforeState: null,
+    afterState: { state: parsed.data.request.state, url: parsed.data.request.url },
+    metadata: { service: 'twiga-core' },
+  });
+  return { ok: true, requestId, result: parsed.data };
 }
 
 export async function getDataPlatformEvidenceGroup(actor: AdminActor, publicId: string) {

@@ -36,8 +36,11 @@ import {
   confirmResolutionEvaluationSet,
   reviewResolutionEvaluationLabel,
   resolveDataPlatformEntityReview,
+  getExternalEvidenceRequests,
+  submitExternalEvidenceRequest,
 } from '@/lib/admin/data-platform';
 import {
+  externalEvidenceRequestInputSchema,
   resolutionEvaluationSetConfirmationInputSchema,
   resolutionLabelReviewInputSchema,
 } from '@/lib/admin/data-platform-contract';
@@ -168,6 +171,15 @@ export async function GET(request: Request, context: { params: Promise<{ segment
             allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
           )));
         }
+        if (segments[1] === 'external-evidence') {
+          if (segments[2]) return Response.json({ error: 'Invalid external-evidence request' }, { status: 400 });
+          const allowedKeys = ['state', 'limit'] as const;
+          const unknownKeys = [...url.searchParams.keys()].filter((key) => !allowedKeys.includes(key as typeof allowedKeys[number]));
+          if (unknownKeys.length) return Response.json({ error: 'Unknown external-evidence filter' }, { status: 400 });
+          return Response.json(await getExternalEvidenceRequests(actor, Object.fromEntries(
+            allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
+          )));
+        }
         if (segments[1] === 'evidence-groups') {
           if (segments[2]) return Response.json(await getDataPlatformEvidenceGroup(actor, segments[2]));
           const allowedKeys = ['sourceKey', 'entityRole', 'localityPosture', 'query', 'limit'] as const;
@@ -227,6 +239,14 @@ export async function POST(request: Request, context: { params: Promise<{ segmen
       if (!body.success) return Response.json({ error: 'A valid resolution and audit reason are required' }, { status: 400 });
       const result = await resolveDataPlatformEntityReview(actor, segments[2], body.data);
       logOperationalEvent('admin_mutation_completed', { action: `data_platform.entity_match.${body.data.action}`, requestId: result.requestId });
+      return Response.json(result);
+    }
+    if (segments[0] === 'data-platform' && segments[1] === 'external-evidence' && !segments[2]) {
+      const actor = await authorizeAdminRequest(request, 'data-platform:write');
+      const body = externalEvidenceRequestInputSchema.safeParse(await request.json().catch(() => null));
+      if (!body.success) return Response.json({ error: 'A public URL and audit reason are required' }, { status: 400 });
+      const result = await submitExternalEvidenceRequest(actor, body.data);
+      logOperationalEvent('admin_mutation_completed', { action: 'data_platform.external_evidence.request', requestId: result.requestId });
       return Response.json(result);
     }
     if (segments[0] === 'data-platform' && segments[1] === 'resolution-evaluation-labels'
