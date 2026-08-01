@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  acquisitionDomainPolicyInputSchema,
+  acquisitionPoliciesSchema,
+  acquisitionSettingsUpdateSchema,
   dataPlatformOverviewSchema,
   dataPlatformRunDetailSchema,
   dataPlatformRunListQuerySchema,
@@ -311,5 +314,30 @@ describe('Data Platform gateway contract', () => {
     expect(externalEvidenceListQuerySchema.safeParse({ state: 'queued', limit: '100' }).success).toBe(true);
     expect(externalEvidenceListQuerySchema.safeParse({ state: 'invented' }).success).toBe(false);
     expect(externalEvidenceListQuerySchema.safeParse({ secret: 'must-not-pass' }).success).toBe(false);
+  });
+
+  test('validates versioned acquisition settings and domain controls', () => {
+    const values = {
+      singlePageIntake: { enabled: true }, pageCapture: { enabled: true }, aiInterpretation: { enabled: true },
+      queueDepth: { enabled: true, value: 500 }, maxAttempts: { enabled: true, value: 3 },
+      queueLatencyAlertMinutes: { enabled: true, value: 10 },
+      dailyFirecrawlCredits: { enabled: true, value: 1000 }, monthlyFirecrawlCredits: { enabled: true, value: 20000 },
+      dailyOpenRouterTokens: { enabled: true, value: 1000000 }, monthlyOpenRouterTokens: { enabled: true, value: 20000000 },
+      recurringCrawls: { enabled: false }, requireApprovedRights: { enabled: true }, respectRobots: { enabled: true },
+      maxPagesPerRun: { enabled: true, value: 50 }, requestsPerMinute: { enabled: true, value: 10 },
+      recrawlIntervalDays: { enabled: true, value: 30 },
+    };
+    expect(acquisitionSettingsUpdateSchema.safeParse({ expectedVersion: 1, reason: 'Adjust queue policy', settings: values }).success).toBe(true);
+    expect(acquisitionDomainPolicyInputSchema.safeParse({
+      hostname: 'example.co.tz', expectedVersion: null, reason: 'Record initial posture', enabled: true,
+      singlePageEnabled: true, recurringEnabled: false, rightsStatus: 'pending', robotsStatus: 'unknown',
+      requestsPerMinute: null, maxPagesPerRun: null, recrawlIntervalDays: null,
+    }).success).toBe(true);
+    expect(acquisitionPoliciesSchema.safeParse({
+      contractVersion: 'admin-data-platform.v1',
+      settings: { publicId: `acquisition_policy_${'1'.repeat(32)}`, version: 1, values, updatedBy: 'migration', updatedAt: '2026-08-01T12:00:00.000Z' },
+      domains: [], queue: { queued: 0, oldestQueuedMinutes: null, alerting: false },
+      capabilities: { currentPipeline: [], preparedForRecurringCollector: [] }, generatedAt: '2026-08-01T12:00:00.000Z',
+    }).success).toBe(true);
   });
 });

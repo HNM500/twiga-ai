@@ -593,6 +593,94 @@ export const externalEvidenceSubmitResultSchema = z.object({
   created: z.boolean(),
 });
 
+const acquisitionToggleSchema = z.object({ enabled: z.boolean() }).strict();
+const acquisitionNumberPolicySchema = z.object({ enabled: z.boolean(), value: z.number().int().positive() }).strict();
+export const acquisitionSettingsValuesSchema = z.object({
+  singlePageIntake: acquisitionToggleSchema,
+  pageCapture: acquisitionToggleSchema,
+  aiInterpretation: acquisitionToggleSchema,
+  queueDepth: acquisitionNumberPolicySchema,
+  maxAttempts: acquisitionNumberPolicySchema,
+  queueLatencyAlertMinutes: acquisitionNumberPolicySchema,
+  dailyFirecrawlCredits: acquisitionNumberPolicySchema,
+  monthlyFirecrawlCredits: acquisitionNumberPolicySchema,
+  dailyOpenRouterTokens: acquisitionNumberPolicySchema,
+  monthlyOpenRouterTokens: acquisitionNumberPolicySchema,
+  recurringCrawls: acquisitionToggleSchema,
+  requireApprovedRights: acquisitionToggleSchema,
+  respectRobots: acquisitionToggleSchema,
+  maxPagesPerRun: acquisitionNumberPolicySchema,
+  requestsPerMinute: acquisitionNumberPolicySchema,
+  recrawlIntervalDays: acquisitionNumberPolicySchema,
+}).strict();
+
+export const acquisitionSettingsUpdateSchema = z.object({
+  expectedVersion: z.number().int().positive(),
+  reason: z.string().trim().min(8).max(500),
+  settings: acquisitionSettingsValuesSchema,
+}).strict();
+
+export const acquisitionDomainPolicyInputSchema = z.object({
+  hostname: z.string().trim().toLowerCase().min(3).max(253)
+    .regex(/^(?=.{3,253}$)(?!-)(?:[a-z0-9-]+\.)+[a-z]{2,63}$/),
+  expectedVersion: z.number().int().positive().nullable(),
+  reason: z.string().trim().min(8).max(500),
+  enabled: z.boolean(),
+  singlePageEnabled: z.boolean(),
+  recurringEnabled: z.boolean(),
+  rightsStatus: z.enum(['pending', 'approved', 'approved_with_conditions', 'blocked']),
+  robotsStatus: z.enum(['unknown', 'allowed', 'restricted', 'blocked']),
+  requestsPerMinute: z.number().int().min(1).max(600).nullable(),
+  maxPagesPerRun: z.number().int().min(1).max(10_000).nullable(),
+  recrawlIntervalDays: z.number().int().min(1).max(3_650).nullable(),
+}).strict();
+
+const acquisitionSettingsRecordSchema = z.object({
+  publicId: z.string().regex(/^acquisition_policy_[0-9a-f]{32}$/),
+  version: z.number().int().positive(),
+  values: acquisitionSettingsValuesSchema,
+  updatedBy: z.string(),
+  updatedAt: z.string(),
+});
+
+const acquisitionDomainPolicySchema = z.object({
+  publicId: z.string().regex(/^domain_policy_[0-9a-f]{32}$/),
+  hostname: z.string(),
+  enabled: z.boolean(),
+  singlePageEnabled: z.boolean(),
+  recurringEnabled: z.boolean(),
+  rightsStatus: z.enum(['pending', 'approved', 'approved_with_conditions', 'blocked']),
+  robotsStatus: z.enum(['unknown', 'allowed', 'restricted', 'blocked']),
+  requestsPerMinute: z.number().int().nullable(),
+  maxPagesPerRun: z.number().int().nullable(),
+  recrawlIntervalDays: z.number().int().nullable(),
+  version: z.number().int().positive(),
+  updatedBy: z.string(),
+  updatedAt: z.string(),
+});
+
+export const acquisitionPoliciesSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'),
+  settings: acquisitionSettingsRecordSchema,
+  domains: z.array(acquisitionDomainPolicySchema),
+  queue: z.object({ queued: z.number().int().nonnegative(), oldestQueuedMinutes: z.number().int().nonnegative().nullable(), alerting: z.boolean() }),
+  capabilities: z.object({
+    currentPipeline: z.array(z.string()),
+    preparedForRecurringCollector: z.array(z.string()),
+  }),
+  generatedAt: z.string(),
+});
+
+export const acquisitionSettingsUpdateResultSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'),
+  settings: acquisitionSettingsRecordSchema,
+});
+
+export const acquisitionDomainPolicyResultSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'),
+  domain: acquisitionDomainPolicySchema,
+});
+
 export type DataPlatformOverview = z.infer<typeof dataPlatformOverviewSchema>;
 export type DataPlatformRunList = z.infer<typeof dataPlatformRunListSchema>;
 export type DataPlatformRunDetail = z.infer<typeof dataPlatformRunDetailSchema>;
@@ -610,3 +698,6 @@ export type ResolutionLabelReviewInput = z.infer<typeof resolutionLabelReviewInp
 export type ResolutionEvaluationSetConfirmationInput = z.infer<typeof resolutionEvaluationSetConfirmationInputSchema>;
 export type ExternalEvidenceList = z.infer<typeof externalEvidenceListSchema>;
 export type ExternalEvidenceRequestInput = z.infer<typeof externalEvidenceRequestInputSchema>;
+export type AcquisitionPolicies = z.infer<typeof acquisitionPoliciesSchema>;
+export type AcquisitionSettingsUpdateInput = z.infer<typeof acquisitionSettingsUpdateSchema>;
+export type AcquisitionDomainPolicyInput = z.infer<typeof acquisitionDomainPolicyInputSchema>;

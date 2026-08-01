@@ -38,8 +38,13 @@ import {
   resolveDataPlatformEntityReview,
   getExternalEvidenceRequests,
   submitExternalEvidenceRequest,
+  getAcquisitionPolicies,
+  updateAcquisitionSettings,
+  upsertAcquisitionDomainPolicy,
 } from '@/lib/admin/data-platform';
 import {
+  acquisitionDomainPolicyInputSchema,
+  acquisitionSettingsUpdateSchema,
   externalEvidenceRequestInputSchema,
   resolutionEvaluationSetConfirmationInputSchema,
   resolutionLabelReviewInputSchema,
@@ -180,6 +185,10 @@ export async function GET(request: Request, context: { params: Promise<{ segment
             allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
           )));
         }
+        if (segments[1] === 'acquisition-policies') {
+          if (segments[2] || url.search) return Response.json({ error: 'Invalid acquisition-policy request' }, { status: 400 });
+          return Response.json(await getAcquisitionPolicies(actor));
+        }
         if (segments[1] === 'evidence-groups') {
           if (segments[2]) return Response.json(await getDataPlatformEvidenceGroup(actor, segments[2]));
           const allowedKeys = ['sourceKey', 'entityRole', 'localityPosture', 'query', 'limit'] as const;
@@ -247,6 +256,24 @@ export async function POST(request: Request, context: { params: Promise<{ segmen
       if (!body.success) return Response.json({ error: 'A public URL and audit reason are required' }, { status: 400 });
       const result = await submitExternalEvidenceRequest(actor, body.data);
       logOperationalEvent('admin_mutation_completed', { action: 'data_platform.external_evidence.request', requestId: result.requestId });
+      return Response.json(result);
+    }
+    if (segments[0] === 'data-platform' && segments[1] === 'acquisition-policies'
+      && segments[2] === 'settings' && !segments[3]) {
+      const actor = await authorizeAdminRequest(request, 'data-platform:write');
+      const body = acquisitionSettingsUpdateSchema.safeParse(await request.json().catch(() => null));
+      if (!body.success) return Response.json({ error: 'Valid acquisition settings and an audit reason are required' }, { status: 400 });
+      const result = await updateAcquisitionSettings(actor, body.data);
+      logOperationalEvent('admin_mutation_completed', { action: 'data_platform.acquisition_settings.update', requestId: result.requestId });
+      return Response.json(result);
+    }
+    if (segments[0] === 'data-platform' && segments[1] === 'acquisition-policies'
+      && segments[2] === 'domains' && !segments[3]) {
+      const actor = await authorizeAdminRequest(request, 'data-platform:write');
+      const body = acquisitionDomainPolicyInputSchema.safeParse(await request.json().catch(() => null));
+      if (!body.success) return Response.json({ error: 'A valid domain policy and audit reason are required' }, { status: 400 });
+      const result = await upsertAcquisitionDomainPolicy(actor, body.data);
+      logOperationalEvent('admin_mutation_completed', { action: 'data_platform.acquisition_domain_policy.save', requestId: result.requestId });
       return Response.json(result);
     }
     if (segments[0] === 'data-platform' && segments[1] === 'resolution-evaluation-labels'
