@@ -296,6 +296,7 @@ describe('Data Platform gateway contract', () => {
       publicId: `external_evidence_request_${'1'.repeat(32)}`,
       url: 'https://example.co.tz/about', submittedBy: 'twiga-admin:user-1',
       reason: 'Investigate this public company page', state: 'queued',
+      origin: 'admin',
       attemptCount: 0, maxAttempts: 3, candidateCount: 0, providerKey: 'firecrawl',
       providerUsage: {}, error: null, runPublicId: null, submissionPublicId: null,
       requestedAt: '2026-08-01T12:00:00.000Z', startedAt: null, completedAt: null,
@@ -330,6 +331,7 @@ describe('Data Platform gateway contract', () => {
     expect(acquisitionSettingsUpdateSchema.safeParse({ expectedVersion: 1, reason: 'Adjust queue policy', settings: values }).success).toBe(true);
     expect(acquisitionDomainPolicyInputSchema.safeParse({
       hostname: 'example.co.tz', expectedVersion: null, reason: 'Record initial posture', enabled: true,
+      startUrl: 'https://example.co.tz/about', recurringMode: 'dry_run',
       singlePageEnabled: true, recurringEnabled: false, rightsStatus: 'pending', robotsStatus: 'unknown',
       requestsPerMinute: null, maxPagesPerRun: null, recrawlIntervalDays: null,
     }).success).toBe(true);
@@ -337,7 +339,11 @@ describe('Data Platform gateway contract', () => {
       contractVersion: 'admin-data-platform.v1',
       settings: { publicId: `acquisition_policy_${'1'.repeat(32)}`, version: 1, values, updatedBy: 'migration', updatedAt: '2026-08-01T12:00:00.000Z' },
       domains: [], queue: { queued: 0, oldestQueuedMinutes: null, alerting: false },
-      capabilities: { currentPipeline: [], preparedForRecurringCollector: [] }, generatedAt: '2026-08-01T12:00:00.000Z',
+      capabilities: { currentPipeline: [], recurringCollector: [], preparedForMultiPageCollector: [] },
+      scheduler: {
+        enabled: false, scope: 'reviewed_start_page', due: 0, blocked: 0, dryRunDomains: 0, liveDomains: 0,
+        recentDecisions: [],
+      }, generatedAt: '2026-08-01T12:00:00.000Z',
     }).success).toBe(true);
   });
 });
