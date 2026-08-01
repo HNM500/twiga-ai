@@ -17,6 +17,8 @@ import {
   evidenceGroupListQuerySchema,
   evidenceGroupListSchema,
   resolutionEvaluationSetDetailSchema,
+  resolutionEvaluationSetConfirmationInputSchema,
+  resolutionEvaluationSetConfirmationResultSchema,
   resolutionEvaluationSetListSchema,
   resolutionLabelReviewInputSchema,
 } from '@/lib/admin/data-platform-contract';
@@ -227,13 +229,19 @@ describe('Data Platform gateway contract', () => {
         reviewProgress: { pendingCount: 30, confirmedCount: 0, correctedCount: 0, rejectedCount: 0, acceptedCount: 0, readyForConfirmation: false },
         createdAt: group.updatedAt, detailHref: `/data-platform/resolution-quality/resolution_set_${'1'.repeat(32)}`,
         capabilities: { read: true, reviewLabels: true, confirmSet: false },
-        latestScore: { publicId: `resolution_score_${'1'.repeat(32)}`, shadowRunPublicId: `resolution_run_${'1'.repeat(32)}`, agreementRate: 0.4, evaluatedCount: 30, scoredAt: group.updatedAt, metricSemantics: 'provisional_agreement_only' },
+        latestScore: {
+          publicId: `resolution_score_${'1'.repeat(32)}`, shadowRunPublicId: `resolution_run_${'1'.repeat(32)}`,
+          labelledCount: 30, evaluatedCount: 30, agreementCount: 12, agreementRate: 0.4,
+          falseMergeCount: 1, missedMatchCount: 4, reviewRequiredCount: 13,
+          scoredAt: group.updatedAt, metricSemantics: 'provisional_agreement_only',
+        },
       }],
     }).success).toBe(true);
     const setDetail = {
       contractVersion: 'admin-data-platform.v1', generatedAt: group.updatedAt,
-      evaluationSet: { publicId: `resolution_set_${'1'.repeat(32)}`, datasetKey: 'provisional_labels', version: 1, status: 'provisional', sourceKey: 'regulator_import', notes: null, createdBy: 'operator', createdAt: group.updatedAt },
-      progress: { labelCount: 1, pendingCount: 1, confirmedCount: 0, correctedCount: 0, rejectedCount: 0, acceptedCount: 0, readyForConfirmation: false },
+      evaluationSet: { publicId: `resolution_set_${'1'.repeat(32)}`, datasetKey: 'provisional_labels', version: 1, status: 'provisional', sourceKey: 'regulator_import', notes: null, createdBy: 'operator', createdAt: group.updatedAt, confirmedBy: null, confirmedAt: null },
+      progress: { labelCount: 1, pendingCount: 1, confirmedCount: 0, correctedCount: 0, rejectedCount: 0, acceptedCount: 0, readyForConfirmation: false, reviewVersion: 'a'.repeat(64) },
+      latestScore: null,
       labels: [{
         publicId: `resolution_label_${'1'.repeat(32)}`, reviewPublicId: `review_${'1'.repeat(32)}`, lane: 'exact',
         subjectSnapshot: { candidateName: 'Example', privateConnectorToken: 'must-not-cross-gateway' }, originalRecommendation: 'link_existing', rationale: 'Provisional rationale', evidenceReferences: [],
@@ -251,5 +259,28 @@ describe('Data Platform gateway contract', () => {
     expect(resolutionLabelReviewInputSchema.safeParse({
       decision: 'confirm', reason: 'Missing evidence reference.', evidenceReferences: [], expectedLatestReviewPublicId: null,
     }).success).toBe(false);
+    expect(resolutionEvaluationSetConfirmationInputSchema.safeParse({
+      reason: 'All labels were reviewed independently.', expectedReviewVersion: 'a'.repeat(64),
+    }).success).toBe(true);
+    expect(resolutionEvaluationSetConfirmationInputSchema.safeParse({
+      reason: 'All labels were reviewed independently.', expectedReviewVersion: 'stale',
+    }).success).toBe(false);
+    expect(resolutionEvaluationSetConfirmationResultSchema.safeParse({
+      evaluationSet: {
+        publicId: `resolution_set_${'1'.repeat(32)}`, datasetKey: 'provisional_labels', version: 1,
+        status: 'confirmed', confirmedBy: 'reviewer', confirmedAt: group.updatedAt,
+      },
+      progress: {
+        labelCount: 30, pendingCount: 0, confirmedCount: 20, correctedCount: 9,
+        rejectedCount: 1, acceptedCount: 29, readyForConfirmation: true, reviewVersion: 'a'.repeat(64),
+      },
+      latestScore: {
+        publicId: `resolution_score_${'1'.repeat(32)}`, shadowRunPublicId: `resolution_run_${'1'.repeat(32)}`,
+        labelledCount: 29, evaluatedCount: 29, agreementCount: 25, agreementRate: 25 / 29,
+        falseMergeCount: 0, missedMatchCount: 2, reviewRequiredCount: 8,
+        scoredAt: group.updatedAt, metricSemantics: 'confirmed_quality_evaluation',
+      },
+      capabilities: { reviewLabels: false, confirmSet: false },
+    }).success).toBe(true);
   });
 });

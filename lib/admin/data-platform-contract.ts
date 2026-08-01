@@ -446,7 +446,16 @@ const resolutionLabelEvidenceReferenceSchema = z.object({
   reference: z.string().min(1).max(2_048), note: z.string().min(1).max(500).optional(),
 }).strict();
 const resolutionEvaluationCapabilitiesSchema = z.object({
-  read: z.literal(true), reviewLabels: z.boolean(), confirmSet: z.literal(false),
+  read: z.literal(true), reviewLabels: z.boolean(), confirmSet: z.boolean(),
+});
+const resolutionEvaluationScoreSchema = z.object({
+  publicId: z.string().regex(/^resolution_score_[0-9a-f]{32}$/),
+  shadowRunPublicId: z.string().regex(/^resolution_run_[0-9a-f]{32}$/).nullable(),
+  labelledCount: z.number().int().nonnegative(), evaluatedCount: z.number().int().nonnegative(),
+  agreementCount: z.number().int().nonnegative(), agreementRate: z.number().min(0).max(1).nullable(),
+  falseMergeCount: z.number().int().nonnegative(), missedMatchCount: z.number().int().nonnegative(),
+  reviewRequiredCount: z.number().int().nonnegative(), scoredAt: z.string().nullable(),
+  metricSemantics: z.enum(['confirmed_quality_evaluation', 'provisional_agreement_only']),
 });
 const resolutionSubjectSnapshotSchema = z.object({
   candidateName: z.string().optional(), organizationName: z.string().optional(), name: z.string().optional(),
@@ -463,11 +472,7 @@ export const resolutionEvaluationSetListSchema = z.object({
     labelCount: z.number().int().nonnegative(), reviewProgress: resolutionReviewProgressSchema,
     createdAt: z.string(), detailHref: z.string().startsWith('/data-platform/resolution-quality/'),
     capabilities: resolutionEvaluationCapabilitiesSchema,
-    latestScore: z.object({
-      publicId: z.string(), shadowRunPublicId: z.string().nullable(), agreementRate: z.number().min(0).max(1).nullable(),
-      evaluatedCount: z.number().int().nonnegative(), scoredAt: z.string().nullable(),
-      metricSemantics: z.enum(['confirmed_quality_evaluation', 'provisional_agreement_only']),
-    }).nullable(),
+    latestScore: resolutionEvaluationScoreSchema.nullable(),
   })),
   count: z.number().int().nonnegative(),
 });
@@ -487,8 +492,12 @@ export const resolutionEvaluationSetDetailSchema = z.object({
     publicId: z.string().regex(/^resolution_set_[0-9a-f]{32}$/), datasetKey: z.string(),
     version: z.number().int().positive(), status: z.enum(['draft', 'provisional', 'confirmed', 'retired']),
     sourceKey: z.string().nullable(), notes: z.string().nullable(), createdBy: z.string(), createdAt: z.string(),
+    confirmedBy: z.string().nullable(), confirmedAt: z.string().nullable(),
   }),
-  progress: resolutionReviewProgressSchema.extend({ labelCount: z.number().int().nonnegative() }),
+  progress: resolutionReviewProgressSchema.extend({
+    labelCount: z.number().int().nonnegative(), reviewVersion: z.string().regex(/^[0-9a-f]{64}$/),
+  }),
+  latestScore: resolutionEvaluationScoreSchema.nullable(),
   labels: z.array(z.object({
     publicId: z.string().regex(/^resolution_label_[0-9a-f]{32}$/),
     reviewPublicId: z.string().regex(/^review_[0-9a-f]{32}$/), lane: z.string(),
@@ -527,7 +536,25 @@ export const resolutionLabelReviewResultSchema = z.object({
   labelPublicId: z.string().regex(/^resolution_label_[0-9a-f]{32}$/),
   latestReview: resolutionLabelLatestReviewSchema,
   progress: resolutionReviewProgressSchema.extend({ labelCount: z.number().int().nonnegative() }),
-  capabilities: z.object({ reviewLabels: z.literal(true), confirmSet: z.literal(false) }),
+  capabilities: z.object({ reviewLabels: z.literal(true), confirmSet: z.boolean() }),
+});
+
+export const resolutionEvaluationSetConfirmationInputSchema = z.object({
+  reason: z.string().trim().min(8).max(2_000),
+  expectedReviewVersion: z.string().regex(/^[0-9a-f]{64}$/),
+}).strict();
+
+export const resolutionEvaluationSetConfirmationResultSchema = z.object({
+  evaluationSet: z.object({
+    publicId: z.string().regex(/^resolution_set_[0-9a-f]{32}$/), datasetKey: z.string(),
+    version: z.number().int().positive(), status: z.literal('confirmed'),
+    confirmedBy: z.string(), confirmedAt: z.string(),
+  }),
+  progress: resolutionReviewProgressSchema.extend({
+    labelCount: z.number().int().nonnegative(), reviewVersion: z.string().regex(/^[0-9a-f]{64}$/),
+  }),
+  latestScore: resolutionEvaluationScoreSchema.nullable(),
+  capabilities: z.object({ reviewLabels: z.literal(false), confirmSet: z.literal(false) }),
 });
 
 export type DataPlatformOverview = z.infer<typeof dataPlatformOverviewSchema>;
@@ -544,3 +571,4 @@ export type EvidenceGroupDetail = z.infer<typeof evidenceGroupDetailSchema>;
 export type ResolutionEvaluationSetList = z.infer<typeof resolutionEvaluationSetListSchema>;
 export type ResolutionEvaluationSetDetail = z.infer<typeof resolutionEvaluationSetDetailSchema>;
 export type ResolutionLabelReviewInput = z.infer<typeof resolutionLabelReviewInputSchema>;
+export type ResolutionEvaluationSetConfirmationInput = z.infer<typeof resolutionEvaluationSetConfirmationInputSchema>;
