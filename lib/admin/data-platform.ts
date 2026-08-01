@@ -6,6 +6,11 @@ import { maindb } from '@/lib/db';
 import { adminAuditLog } from '@/lib/db/schema';
 import { AdminAccessError, type AdminActor } from '@/lib/admin/security';
 import {
+  acquisitionDomainPolicyInputSchema,
+  acquisitionDomainPolicyResultSchema,
+  acquisitionPoliciesSchema,
+  acquisitionSettingsUpdateResultSchema,
+  acquisitionSettingsUpdateSchema,
   dataPlatformOverviewSchema,
   dataPlatformOrganizationDetailSchema,
   dataPlatformOrganizationListQuerySchema,
@@ -35,6 +40,8 @@ import {
   type ResolutionEvaluationSetConfirmationInput,
   type ResolutionLabelReviewInput,
   type ExternalEvidenceRequestInput,
+  type AcquisitionDomainPolicyInput,
+  type AcquisitionSettingsUpdateInput,
 } from '@/lib/admin/data-platform-contract';
 
 function coreUrl(path: string) {
@@ -230,6 +237,75 @@ export async function submitExternalEvidenceRequest(actor: AdminActor, rawInput:
     requestId,
     beforeState: null,
     afterState: { state: parsed.data.request.state, url: parsed.data.request.url },
+    metadata: { service: 'twiga-core' },
+  });
+  return { ok: true, requestId, result: parsed.data };
+}
+
+export async function getAcquisitionPolicies(actor: AdminActor) {
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    '/internal/v1/admin/data-platform/acquisition-policies',
+    'data-platform:read',
+  );
+  const parsed = acquisitionPoliciesSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned incompatible acquisition settings');
+  return parsed.data;
+}
+
+export async function updateAcquisitionSettings(actor: AdminActor, rawInput: AcquisitionSettingsUpdateInput) {
+  const input = acquisitionSettingsUpdateSchema.parse(rawInput);
+  const requestId = crypto.randomUUID();
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: 'data_platform.acquisition_settings.update.requested', targetType: 'acquisition_policy',
+    targetId: `version:${input.expectedVersion}`, reason: input.reason, requestId,
+    beforeState: { version: input.expectedVersion }, afterState: null, metadata: { service: 'twiga-core' },
+  });
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    '/internal/v1/admin/data-platform/acquisition-policies/settings',
+    'data-platform:write',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+  const parsed = acquisitionSettingsUpdateResultSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible acquisition-settings result');
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: 'data_platform.acquisition_settings.updated', targetType: 'acquisition_policy',
+    targetId: parsed.data.settings.publicId, reason: input.reason, requestId,
+    beforeState: { version: input.expectedVersion }, afterState: { version: parsed.data.settings.version },
+    metadata: { service: 'twiga-core' },
+  });
+  return { ok: true, requestId, result: parsed.data };
+}
+
+export async function upsertAcquisitionDomainPolicy(actor: AdminActor, rawInput: AcquisitionDomainPolicyInput) {
+  const input = acquisitionDomainPolicyInputSchema.parse(rawInput);
+  const requestId = crypto.randomUUID();
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: 'data_platform.acquisition_domain_policy.save.requested', targetType: 'acquisition_domain_policy',
+    targetId: input.hostname, reason: input.reason, requestId,
+    beforeState: { version: input.expectedVersion }, afterState: null,
+    metadata: { service: 'twiga-core', hostname: input.hostname },
+  });
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    '/internal/v1/admin/data-platform/acquisition-policies/domains',
+    'data-platform:write',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+  const parsed = acquisitionDomainPolicyResultSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible domain-policy result');
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: input.expectedVersion === null
+      ? 'data_platform.acquisition_domain_policy.created'
+      : 'data_platform.acquisition_domain_policy.updated',
+    targetType: 'acquisition_domain_policy', targetId: parsed.data.domain.publicId,
+    reason: input.reason, requestId, beforeState: { version: input.expectedVersion },
+    afterState: { version: parsed.data.domain.version, hostname: parsed.data.domain.hostname },
     metadata: { service: 'twiga-core' },
   });
   return { ok: true, requestId, result: parsed.data };
