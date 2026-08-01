@@ -557,6 +557,42 @@ export const resolutionEvaluationSetConfirmationResultSchema = z.object({
   capabilities: z.object({ reviewLabels: z.literal(false), confirmSet: z.literal(false) }),
 });
 
+export const externalEvidenceRequestInputSchema = z.object({
+  url: z.string().trim().url().max(2_048),
+  reason: z.string().trim().min(8).max(500),
+  idempotencyKey: z.string().trim().min(8).max(256),
+}).strict();
+
+const externalEvidenceStateSchema = z.enum(['queued', 'running', 'completed', 'needs_review', 'failed', 'cancelled']);
+const externalEvidenceRequestSchema = z.object({
+  publicId: z.string().regex(/^external_evidence_request_[0-9a-f]{32}$/),
+  url: z.string().url(), submittedBy: z.string(), reason: z.string(), state: externalEvidenceStateSchema,
+  attemptCount: z.number().int().nonnegative(), maxAttempts: z.number().int().positive(),
+  candidateCount: z.number().int().nonnegative(), providerKey: z.string(),
+  providerUsage: z.record(z.string(), z.unknown()),
+  error: z.object({ code: z.string(), detail: z.record(z.string(), z.unknown()) }).nullable(),
+  runPublicId: z.string().regex(/^run_[0-9a-f]{32}$/).nullable(),
+  submissionPublicId: z.string().regex(/^submission_[0-9a-f]{32}$/).nullable(),
+  requestedAt: z.string(), startedAt: z.string().nullable(), completedAt: z.string().nullable(), updatedAt: z.string(),
+});
+
+export const externalEvidenceListQuerySchema = z.object({
+  state: externalEvidenceStateSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+}).strict();
+
+export const externalEvidenceListSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'),
+  requests: z.array(externalEvidenceRequestSchema), count: z.number().int().nonnegative(),
+  filters: z.object({ state: externalEvidenceStateSchema.nullable() }), generatedAt: z.string(),
+});
+
+export const externalEvidenceSubmitResultSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'),
+  request: externalEvidenceRequestSchema,
+  created: z.boolean(),
+});
+
 export type DataPlatformOverview = z.infer<typeof dataPlatformOverviewSchema>;
 export type DataPlatformRunList = z.infer<typeof dataPlatformRunListSchema>;
 export type DataPlatformRunDetail = z.infer<typeof dataPlatformRunDetailSchema>;
@@ -572,3 +608,5 @@ export type ResolutionEvaluationSetList = z.infer<typeof resolutionEvaluationSet
 export type ResolutionEvaluationSetDetail = z.infer<typeof resolutionEvaluationSetDetailSchema>;
 export type ResolutionLabelReviewInput = z.infer<typeof resolutionLabelReviewInputSchema>;
 export type ResolutionEvaluationSetConfirmationInput = z.infer<typeof resolutionEvaluationSetConfirmationInputSchema>;
+export type ExternalEvidenceList = z.infer<typeof externalEvidenceListSchema>;
+export type ExternalEvidenceRequestInput = z.infer<typeof externalEvidenceRequestInputSchema>;
