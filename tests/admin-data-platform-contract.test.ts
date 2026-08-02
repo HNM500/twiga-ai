@@ -338,6 +338,7 @@ describe('Data Platform gateway contract', () => {
       recurringCrawls: { enabled: false }, requireApprovedRights: { enabled: true }, respectRobots: { enabled: true },
       maxPagesPerRun: { enabled: true, value: 50 }, requestsPerMinute: { enabled: true, value: 10 },
       recrawlIntervalDays: { enabled: true, value: 30 },
+      sourcePolicyEnforcement: { mode: 'observe_only', canaryPercent: 10, maxDecisionAgeDays: 30 },
     };
     expect(acquisitionSettingsUpdateSchema.safeParse({ expectedVersion: 1, reason: 'Adjust queue policy', settings: values }).success).toBe(true);
     expect(acquisitionDomainPolicyInputSchema.safeParse({
@@ -357,6 +358,8 @@ describe('Data Platform gateway contract', () => {
       },
       shadowPolicy: {
         enforcement: 'observe_only',
+        canaryPercent: 10,
+        maxDecisionAgeDays: 30,
         summary: { total: 1, automatic: 1, limited: 0, needsReview: 0, blocked: 0 },
         recent: [{
           publicId: `preflight_${'1'.repeat(32)}`, hostname: 'example.co.tz', url: 'https://example.co.tz/about',

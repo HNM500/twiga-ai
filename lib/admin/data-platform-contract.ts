@@ -683,6 +683,11 @@ export const acquisitionSettingsValuesSchema = z.object({
   maxPagesPerRun: acquisitionNumberPolicySchema,
   requestsPerMinute: acquisitionNumberPolicySchema,
   recrawlIntervalDays: acquisitionNumberPolicySchema,
+  sourcePolicyEnforcement: z.object({
+    mode: z.enum(['observe_only', 'canary', 'active']),
+    canaryPercent: z.number().int().min(0).max(100),
+    maxDecisionAgeDays: z.number().int().min(1).max(365),
+  }).strict(),
 }).strict();
 
 export const acquisitionSettingsUpdateSchema = z.object({
@@ -823,7 +828,9 @@ export const acquisitionPoliciesSchema = z.object({
     })),
   }),
   shadowPolicy: z.object({
-    enforcement: z.literal('observe_only'),
+    enforcement: z.enum(['observe_only', 'canary', 'active']),
+    canaryPercent: z.number().int().min(0).max(100),
+    maxDecisionAgeDays: z.number().int().min(1).max(365),
     summary: z.object({
       total: z.number().int().nonnegative(), automatic: z.number().int().nonnegative(),
       limited: z.number().int().nonnegative(), needsReview: z.number().int().nonnegative(),
@@ -859,7 +866,7 @@ export const acquisitionDomainPolicyResultSchema = z.object({
 
 export const sourcePolicyOverrideResultSchema = z.object({
   contractVersion: z.literal('admin-data-platform.v1'),
-  enforcement: z.literal('observe_only'),
+  enforcement: z.enum(['observe_only', 'canary', 'active']),
   override: sourcePolicyOverrideSchema,
 });
 
