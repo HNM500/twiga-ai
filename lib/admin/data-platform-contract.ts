@@ -176,7 +176,7 @@ export const dataPlatformReviewListSchema = z.object({
 });
 
 const candidateSchema = z.object({
-  publicId: z.string(), name: z.string(), lifecycleState: z.string(), score: z.number().min(0).max(1),
+  publicId: z.string(), subjectKind: z.enum(['organization', 'person']), name: z.string(), lifecycleState: z.string(), score: z.number().min(0).max(1),
   method: z.enum(['identifier_exact', 'exact_match_key', 'name_token_similarity']),
   identifiers: z.array(z.object({ kind: z.string(), value: z.string() })),
   fields: z.array(z.object({ path: z.string(), value: z.unknown(), confidence: z.number(), freshnessExpiresAt: z.string().nullable() })),
@@ -210,6 +210,9 @@ export const dataPlatformReviewDetailSchema = z.object({
     })),
   }).nullable(),
   candidates: z.array(candidateSchema),
+  resolvedEntity: z.object({
+    subjectKind: z.enum(['organization', 'person']), publicId: z.string(), name: z.string(),
+  }).nullable(),
   contradictions: z.array(z.object({ severity: z.enum(['info', 'warning', 'critical']), code: z.string(), summary: z.string() })),
   recommendedAction: reviewRecommendationSchema,
   availableActions: z.object({
