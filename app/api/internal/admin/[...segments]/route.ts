@@ -22,6 +22,7 @@ import { logOperationalError, logOperationalEvent } from '@/lib/observability';
 import {
   getDataPlatformOrganization,
   getDataPlatformOrganizations,
+  getDataPlatformPerson,
   getDataPlatformReview,
   getDataPlatformReviews,
   getDataPlatformOverview,
@@ -41,6 +42,7 @@ import {
   getAcquisitionPolicies,
   updateAcquisitionSettings,
   upsertAcquisitionDomainPolicy,
+  updateDataPlatformOrganization,
 } from '@/lib/admin/data-platform';
 import {
   acquisitionDomainPolicyInputSchema,
@@ -48,6 +50,7 @@ import {
   externalEvidenceRequestInputSchema,
   resolutionEvaluationSetConfirmationInputSchema,
   resolutionLabelReviewInputSchema,
+  organizationDossierUpdateSchema,
 } from '@/lib/admin/data-platform-contract';
 
 export const dynamic = 'force-dynamic';
@@ -169,6 +172,9 @@ export async function GET(request: Request, context: { params: Promise<{ segment
             allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
           )));
         }
+        if (segments[1] === 'people' && segments[2] && !segments[3] && !url.search) {
+          return Response.json(await getDataPlatformPerson(actor, segments[2]));
+        }
         if (segments[1] === 'sources') {
           if (segments[2]) return Response.json(await getDataPlatformSource(actor, segments[2]));
           const allowedKeys = ['sourceType', 'authorityLevel', 'rightsReviewStatus', 'productionIngestionStatus', 'connectorState', 'cursor', 'limit', 'sort'] as const;
@@ -210,6 +216,24 @@ export async function GET(request: Request, context: { params: Promise<{ segment
     }
   } catch (error) {
     if (!(error instanceof Error && 'status' in error)) logOperationalError('admin_read_failed', error, { resource: segments[0] });
+    return adminAccessErrorResponse(error);
+  }
+}
+
+export async function PATCH(request: Request, context: { params: Promise<{ segments: string[] }> }) {
+  const { segments } = await context.params;
+  try {
+    if (segments[0] === 'data-platform' && segments[1] === 'organizations' && segments[2] && !segments[3]) {
+      const actor = await authorizeAdminRequest(request, 'data-platform:write');
+      const body = organizationDossierUpdateSchema.safeParse(await request.json().catch(() => null));
+      if (!body.success) return Response.json({ error: 'Check the organization changes and try again' }, { status: 400 });
+      const result = await updateDataPlatformOrganization(actor, segments[2], body.data);
+      logOperationalEvent('admin_mutation_completed', { action: 'data_platform.organization.update', requestId: result.requestId });
+      return Response.json(result);
+    }
+    return Response.json({ error: 'Not found' }, { status: 404 });
+  } catch (error) {
+    logOperationalError('admin_mutation_failed', error, { resource: segments[0] });
     return adminAccessErrorResponse(error);
   }
 }

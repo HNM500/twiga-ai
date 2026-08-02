@@ -13,8 +13,11 @@ import {
   acquisitionSettingsUpdateSchema,
   dataPlatformOverviewSchema,
   dataPlatformOrganizationDetailSchema,
+  dataPlatformPersonDetailSchema,
   dataPlatformOrganizationListQuerySchema,
   dataPlatformOrganizationListSchema,
+  organizationDossierUpdateResultSchema,
+  organizationDossierUpdateSchema,
   dataPlatformRunDetailSchema,
   dataPlatformRunListQuerySchema,
   dataPlatformRunListSchema,
@@ -152,6 +155,48 @@ export async function getDataPlatformOrganization(actor: AdminActor, publicId: s
   const parsed = dataPlatformOrganizationDetailSchema.safeParse(body);
   if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible organization-detail contract');
   return parsed.data;
+}
+
+export async function getDataPlatformPerson(actor: AdminActor, publicId: string) {
+  if (!/^person_[0-9a-f]{32}$/.test(publicId)) throw new AdminAccessError(400, 'Invalid person identifier');
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    `/internal/v1/admin/data-platform/people/${encodeURIComponent(publicId)}`,
+    'data-platform:read',
+  );
+  const parsed = dataPlatformPersonDetailSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible person-detail contract');
+  return parsed.data;
+}
+
+export async function updateDataPlatformOrganization(actor: AdminActor, publicId: string, rawInput: unknown) {
+  if (!/^org_[0-9a-f]{32}$/.test(publicId)) throw new AdminAccessError(400, 'Invalid organization identifier');
+  const input = organizationDossierUpdateSchema.parse(rawInput);
+  const requestId = crypto.randomUUID();
+  const before = await getDataPlatformOrganization(actor, publicId);
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: 'data_platform.organization.update.requested', targetType: 'organization', targetId: publicId,
+    reason: input.reason, requestId,
+    beforeState: { version: before.organization.version, name: before.organization.canonicalName }, afterState: null,
+    metadata: { service: 'twiga-core', sections: Object.keys(input).filter((key) => !['reason', 'expectedVersion'].includes(key)) },
+  });
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    `/internal/v1/admin/data-platform/organizations/${encodeURIComponent(publicId)}`,
+    'data-platform:write',
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+  const parsed = organizationDossierUpdateResultSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible organization-update contract');
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: 'data_platform.organization.updated', targetType: 'organization', targetId: publicId,
+    reason: input.reason, requestId,
+    beforeState: { version: before.organization.version, name: before.organization.canonicalName },
+    afterState: parsed.data, metadata: { service: 'twiga-core' },
+  });
+  return { ok: true, requestId, result: parsed.data };
 }
 
 export async function getDataPlatformSources(actor: AdminActor, rawInput: Record<string, string | undefined>) {
