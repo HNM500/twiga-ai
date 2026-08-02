@@ -11,6 +11,8 @@ import {
   acquisitionPoliciesSchema,
   acquisitionSettingsUpdateResultSchema,
   acquisitionSettingsUpdateSchema,
+  sourcePolicyOverrideResultSchema,
+  sourcePolicyOverrideInputSchema,
   dataPlatformOverviewSchema,
   dataPlatformOrganizationDetailSchema,
   dataPlatformPersonDetailSchema,
@@ -45,13 +47,14 @@ import {
   type ExternalEvidenceRequestInput,
   type AcquisitionDomainPolicyInput,
   type AcquisitionSettingsUpdateInput,
+  type SourcePolicyOverrideInput,
 } from '@/lib/admin/data-platform-contract';
 
 function coreUrl(path: string) {
   return new URL(path, serverEnv.TWIGA_CORE_URL.endsWith('/') ? serverEnv.TWIGA_CORE_URL : `${serverEnv.TWIGA_CORE_URL}/`);
 }
 
-async function coreAdminRequest<T>(actor: AdminActor, path: string, scope: 'data-platform:read' | 'data-platform:write' | 'reviews:read' | 'reviews:write', init?: RequestInit) {
+async function coreAdminRequest<T>(actor: AdminActor, path: string, scope: 'data-platform:read' | 'data-platform:write' | 'data-platform:policy-override' | 'reviews:read' | 'reviews:write', init?: RequestInit) {
   const response = await fetch(coreUrl(path), {
     ...init,
     headers: {
@@ -352,6 +355,34 @@ export async function upsertAcquisitionDomainPolicy(actor: AdminActor, rawInput:
     reason: input.reason, requestId, beforeState: { version: input.expectedVersion },
     afterState: { version: parsed.data.domain.version, hostname: parsed.data.domain.hostname },
     metadata: { service: 'twiga-core' },
+  });
+  return { ok: true, requestId, result: parsed.data };
+}
+
+export async function recordSourcePolicyShadowOverride(actor: AdminActor, rawInput: SourcePolicyOverrideInput) {
+  const input = sourcePolicyOverrideInputSchema.parse(rawInput);
+  const requestId = crypto.randomUUID();
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: `data_platform.source_policy_override.${input.action}.requested`, targetType: 'source_policy_override',
+    targetId: input.hostname, reason: input.reason, requestId,
+    beforeState: null, afterState: null,
+    metadata: { service: 'twiga-core', hostname: input.hostname, enforcement: 'observe_only' },
+  });
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    '/internal/v1/admin/data-platform/acquisition-policies/shadow-overrides',
+    'data-platform:policy-override',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+  const parsed = sourcePolicyOverrideResultSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible source-policy override result');
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: `data_platform.source_policy_override.${input.action}`, targetType: 'source_policy_override',
+    targetId: parsed.data.override.publicId, reason: input.reason, requestId,
+    beforeState: null, afterState: parsed.data,
+    metadata: { service: 'twiga-core', hostname: input.hostname, enforcement: 'observe_only' },
   });
   return { ok: true, requestId, result: parsed.data };
 }
