@@ -181,7 +181,9 @@ describe('Data Platform gateway contract', () => {
     const detail = {
       contractVersion: 'admin-data-platform.v1', generatedAt: '2026-07-28T12:00:00.000Z',
       organization: { publicId: `org_${'1'.repeat(32)}`, canonicalName: 'Example Tanzania Limited', entityKind: 'legal_entity', countryCode: 'TZ', operatingStatus: 'active', lifecycleState: 'review', version: 1, createdAt: '2026-07-28T10:00:00.000Z', updatedAt: '2026-07-28T12:00:00.000Z', archivedAt: null },
-      names: [], categories: [], services: [], locations: [], servicePoints: [], relationships: [], licences: [], canonicalFields: [], alternativeObservations: [], conflicts: [], productReadiness: [], reviews: [], history: [],
+      names: [], categories: [], services: [], locations: [], servicePoints: [], relationships: [], people: [], licences: [], canonicalFields: [], alternativeObservations: [], conflicts: [], productReadiness: [], reviews: [], history: [],
+      quality: { averageConfidence: null, confidenceBand: 'unknown', highConfidenceCount: 0, mediumConfidenceCount: 0, needsReviewCount: 0, completeness: { score: 13, populated: 1, expected: 8 }, openReviewCount: 0 },
+      editOptions: { entityKinds: ['legal_entity'], operatingStatuses: ['active'], categories: [], services: [], relationshipRoles: [] },
       availableActions: { publish: unavailable, merge: unavailable, split: unavailable, enrich: unavailable },
     };
     expect(dataPlatformOrganizationDetailSchema.safeParse(detail).success).toBe(true);

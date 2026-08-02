@@ -221,7 +221,10 @@ export const dataPlatformReviewDetailSchema = z.object({
   }),
 });
 
-const organizationEntityKindSchema = z.enum(['legal_entity', 'public_brand', 'licensed_institution']);
+const organizationEntityKindSchema = z.enum([
+  'legal_entity', 'operating_business', 'public_brand', 'informal_business', 'government_body',
+  'regulator', 'ngo', 'association', 'educational_institution', 'licensed_institution',
+]);
 const organizationOperatingStatusSchema = z.enum(['active', 'temporarily_unavailable', 'closed', 'unknown']);
 const organizationLifecycleSchema = z.enum(['candidate', 'review', 'publishable', 'published', 'archived']);
 const readinessProductSchema = z.enum(['directory_ready', 'chat_ready', 'enterprise_ready', 'claim_ready', 'twiga_verified']);
@@ -296,6 +299,13 @@ export const dataPlatformOrganizationDetailSchema = z.object({
     relatedOrganization: z.object({ publicId: z.string(), name: z.string(), entityKind: z.string() }),
     validFrom: z.unknown().nullable(), validTo: z.unknown().nullable(), createdAt: z.string(),
   })),
+  people: z.array(z.object({
+    relationshipKey: z.string(),
+    person: z.object({ publicId: z.string().regex(/^person_[0-9a-f]{32}$/), name: z.string(), lifecycleState: z.string() }),
+    predicate: z.string(), role: z.string(), roleTitle: z.string().nullable(),
+    relationshipStatus: z.enum(['current', 'former', 'unknown']), validFrom: z.string().nullable(), validTo: z.string().nullable(),
+    confidence: z.number().min(0).max(1), verificationState: z.string(), observedAt: z.string().nullable(), isAdminEdited: z.boolean(),
+  })),
   licences: z.array(z.object({
     publicId: z.string(), regulatorCode: z.string(), licenceNumber: z.string(), licenceType: z.string().nullable(), sector: z.string().nullable(),
     issuedOn: z.unknown().nullable(), expiresOn: z.unknown().nullable(), status: z.string(), confidence: z.number().min(0).max(1).nullable(),
@@ -304,7 +314,7 @@ export const dataPlatformOrganizationDetailSchema = z.object({
   canonicalFields: z.array(z.object({
     path: z.string(), value: z.unknown(), confidence: z.number().min(0).max(1).nullable(), freshnessExpiresAt: z.string().nullable(), isStale: z.boolean(),
     resolutionMethod: z.string(), resolutionVersion: z.string(), selectedAt: z.string(), selectedBy: z.string(), observedAt: z.string(),
-    observationPublicId: z.string(), source: z.object({ key: z.string(), name: z.string() }),
+    observationPublicId: z.string(), source: z.object({ key: z.string(), name: z.string() }), isAdminEdited: z.boolean(),
   })),
   alternativeObservations: z.array(z.object({
     path: z.string(), originalValue: z.unknown(), normalizedValue: z.unknown(), extractionMethod: z.string(), confidence: z.number().min(0).max(1).nullable(),
@@ -320,7 +330,64 @@ export const dataPlatformOrganizationDetailSchema = z.object({
     reasonCodes: z.array(z.string()), assignee: z.string().nullable(), createdAt: z.string(), updatedAt: z.string(),
   })).max(30),
   history: z.array(z.object({ version: z.number().int().positive(), operation: z.string(), snapshot: z.unknown(), changedAt: z.string(), changedBy: z.string() })).max(30),
+  quality: z.object({
+    averageConfidence: z.number().min(0).max(1).nullable(), confidenceBand: z.enum(['high', 'medium', 'needs_review', 'unknown']),
+    highConfidenceCount: z.number().int().nonnegative(), mediumConfidenceCount: z.number().int().nonnegative(), needsReviewCount: z.number().int().nonnegative(),
+    completeness: z.object({ score: z.number().int().min(0).max(100), populated: z.number().int().nonnegative(), expected: z.number().int().positive() }),
+    openReviewCount: z.number().int().nonnegative(),
+  }),
+  editOptions: z.object({
+    entityKinds: z.array(organizationEntityKindSchema), operatingStatuses: z.array(organizationOperatingStatusSchema),
+    categories: z.array(z.object({ code: z.string(), label: z.string(), labelSw: z.string().nullable() })),
+    services: z.array(z.object({ code: z.string(), label: z.string(), labelSw: z.string().nullable() })),
+    relationshipRoles: z.array(z.object({ predicate: z.string(), label: z.string() })),
+  }),
   availableActions: z.object({ publish: unavailableActionSchema, merge: unavailableActionSchema, split: unavailableActionSchema, enrich: unavailableActionSchema }),
+});
+
+const optionalText = (max: number) => z.string().trim().max(max).nullable();
+const relationshipPredicateSchema = z.enum([
+  'person.ceo_of', 'person.founder_of', 'person.position_at', 'person.executive_of',
+  'person.director_of', 'person.board_member_of', 'person.employed_by',
+]);
+
+export const organizationDossierUpdateSchema = z.object({
+  expectedVersion: z.number().int().positive(), reason: z.string().trim().min(8).max(500),
+  identity: z.object({ canonicalName: z.string().trim().min(2).max(240), entityKind: organizationEntityKindSchema,
+    operatingStatus: organizationOperatingStatusSchema, countryCode: z.string().trim().regex(/^[A-Z]{2}$/) }).strict().optional(),
+  names: z.array(z.object({ name: z.string().trim().min(2).max(240), kind: z.enum(['legal', 'trading', 'alias', 'former', 'abbreviation']), languageCode: z.string().trim().min(2).max(12).nullable() }).strict()).max(30).optional(),
+  fields: z.array(z.object({ path: z.string().trim().max(160), value: z.unknown().optional(), removed: z.boolean() }).strict()).max(100).optional(),
+  categories: z.array(z.object({ code: z.string().trim().min(1).max(120), isPrimary: z.boolean() }).strict()).max(30).optional(),
+  services: z.array(z.string().trim().min(1).max(120)).max(60).optional(),
+  locations: z.array(z.object({
+    publicId: z.string().regex(/^loc_[0-9a-f]{32}$/).optional(), locationKind: z.enum(['head_office', 'office', 'branch', 'atm', 'service_point', 'online_only']),
+    name: optionalText(240), countryCode: z.string().trim().regex(/^[A-Z]{2}$/), region: optionalText(160), district: optionalText(160),
+    ward: optionalText(160), neighbourhood: optionalText(160), streetAddress: optionalText(500), landmark: optionalText(300), postalAddress: optionalText(300),
+    latitude: z.number().min(-90).max(90).nullable(), longitude: z.number().min(-180).max(180).nullable(),
+    coordinatePrecision: z.enum(['exact', 'building', 'street', 'neighbourhood', 'district', 'region', 'unknown']).nullable(),
+    nationwide: z.boolean(), remoteService: z.boolean(), operatingStatus: organizationOperatingStatusSchema,
+  }).strict()).max(100).optional(),
+  licences: z.array(z.object({ publicId: z.string().regex(/^licence_[0-9a-f]{32}$/), regulatorCode: z.string(), licenceNumber: z.string(),
+    licenceType: optionalText(240), sector: optionalText(240), issuedOn: z.iso.date().nullable(), expiresOn: z.iso.date().nullable(),
+    status: z.enum(['active', 'expired', 'suspended', 'revoked', 'unknown']) }).strict()).max(50).optional(),
+  people: z.array(z.object({ relationshipKey: z.string().nullable(), personPublicId: z.string().regex(/^person_[0-9a-f]{32}$/).nullable(),
+    personName: z.string().trim().min(2).max(240), predicate: relationshipPredicateSchema, roleTitle: optionalText(240),
+    relationshipStatus: z.enum(['current', 'former', 'unknown']), validFrom: z.string().nullable(), validTo: z.string().nullable(), removed: z.boolean() }).strict()).max(100).optional(),
+}).strict();
+
+export const organizationDossierUpdateResultSchema = z.object({
+  ok: z.literal(true), publicId: z.string().regex(/^org_[0-9a-f]{32}$/), version: z.number().int().positive(), changedSections: z.array(z.string()),
+});
+
+export const dataPlatformPersonDetailSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'), generatedAt: z.string(),
+  person: z.object({ publicId: z.string().regex(/^person_[0-9a-f]{32}$/), canonicalName: z.string(), lifecycleState: z.string(),
+    visibilityState: z.string(), version: z.number().int().positive(), createdAt: z.string().nullable(), updatedAt: z.string().nullable() }),
+  names: z.array(z.object({ name: z.string(), kind: z.string(), languageCode: z.string().nullable(), isPrimary: z.boolean(), validFrom: z.unknown().nullable(), validTo: z.unknown().nullable() })),
+  relationships: z.array(z.object({ relationshipKey: z.string(), organization: z.object({ publicId: z.string().regex(/^org_[0-9a-f]{32}$/), name: z.string() }),
+    predicate: z.string(), role: z.string(), roleTitle: z.string().nullable(), relationshipStatus: z.enum(['current', 'former', 'unknown']),
+    validFrom: z.string().nullable(), validTo: z.string().nullable(), confidence: z.number().min(0).max(1), verificationState: z.string(), observedAt: z.string().nullable(), isAdminEdited: z.boolean() })),
+  history: z.array(z.object({ version: z.number().int().positive(), operation: z.string(), changedAt: z.string().nullable(), changedBy: z.string() })),
 });
 
 export const dataPlatformSourceListQuerySchema = z.object({
