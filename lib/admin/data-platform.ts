@@ -446,7 +446,7 @@ export async function confirmResolutionEvaluationSet(
 export async function resolveDataPlatformEntityReview(
   actor: AdminActor,
   reviewPublicId: string,
-  input: { action: 'create_new' | 'link_existing' | 'dismiss'; organizationPublicId?: string; reason: string; expectedUpdatedAt?: string },
+  input: { action: 'create_new' | 'link_existing' | 'dismiss'; organizationPublicId?: string; personPublicId?: string; reason: string; expectedUpdatedAt?: string },
 ) {
   const requestId = crypto.randomUUID();
   await maindb.insert(adminAuditLog).values({
@@ -471,6 +471,7 @@ export async function resolveDataPlatformEntityReview(
       body: JSON.stringify({
         action: input.action,
         organizationPublicId: input.organizationPublicId,
+        personPublicId: input.personPublicId,
         note: input.reason,
         expectedUpdatedAt: input.expectedUpdatedAt,
       }),

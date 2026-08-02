@@ -65,14 +65,16 @@ const feedbackSchema = z.discriminatedUnion('action', [
 const entityReviewSchema = z.object({
   action: z.enum(['create_new', 'link_existing', 'dismiss']),
   organizationPublicId: z.string().regex(/^org_[0-9a-f]{32}$/).optional(),
+  personPublicId: z.string().regex(/^person_[0-9a-f]{32}$/).optional(),
   reason: reasonSchema,
   expectedUpdatedAt: z.iso.datetime({ offset: true }).optional(),
 }).superRefine((value, context) => {
-  if (value.action === 'link_existing' && !value.organizationPublicId) {
-    context.addIssue({ code: 'custom', path: ['organizationPublicId'], message: 'An organization is required' });
+  const targetCount = Number(Boolean(value.organizationPublicId)) + Number(Boolean(value.personPublicId));
+  if (value.action === 'link_existing' && targetCount !== 1) {
+    context.addIssue({ code: 'custom', path: ['organizationPublicId'], message: 'Exactly one Organization or Person is required' });
   }
-  if (value.action !== 'link_existing' && value.organizationPublicId) {
-    context.addIssue({ code: 'custom', path: ['organizationPublicId'], message: 'An organization is only valid when linking' });
+  if (value.action !== 'link_existing' && targetCount) {
+    context.addIssue({ code: 'custom', path: ['organizationPublicId'], message: 'An entity target is only valid when linking' });
   }
 });
 
