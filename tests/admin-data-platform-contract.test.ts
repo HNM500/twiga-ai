@@ -3,6 +3,7 @@ import {
   acquisitionDomainPolicyInputSchema,
   acquisitionPoliciesSchema,
   acquisitionSettingsUpdateSchema,
+  sourcePolicyOverrideInputSchema,
   dataPlatformOverviewSchema,
   dataPlatformRunDetailSchema,
   dataPlatformRunListQuerySchema,
@@ -353,7 +354,33 @@ describe('Data Platform gateway contract', () => {
       scheduler: {
         enabled: false, scope: 'reviewed_start_page', due: 0, blocked: 0, dryRunDomains: 0, liveDomains: 0,
         recentDecisions: [],
-      }, generatedAt: '2026-08-01T12:00:00.000Z',
+      },
+      shadowPolicy: {
+        enforcement: 'observe_only',
+        summary: { total: 1, automatic: 1, limited: 0, needsReview: 0, blocked: 0 },
+        recent: [{
+          publicId: `preflight_${'1'.repeat(32)}`, hostname: 'example.co.tz', url: 'https://example.co.tz/about',
+          access: 'public', robots: 'allowed', provider: 'ordinary_web', observedAt: '2026-08-01T12:00:00.000Z',
+          recommendation: {
+            sourceClass: 'standard_public', decision: 'allow_with_limits',
+            usageScopes: { collect: true, internalEnrichment: true, publicDisplay: false, customerExport: false },
+            recurringAllowed: true, maxPagesPerRun: 50, requestsPerMinute: 10,
+            reasonCodes: ['class_standard_public'],
+          },
+          override: null,
+        }],
+        overrideHistory: [],
+      },
+      generatedAt: '2026-08-01T12:00:00.000Z',
+    }).success).toBe(true);
+    expect(sourcePolicyOverrideInputSchema.safeParse({
+      action: 'apply', hostname: 'example.co.tz', sourceClass: 'limited_use',
+      usageScopes: { collect: true, internalEnrichment: true, publicDisplay: false, customerExport: false },
+      recurringAllowed: false, maxPagesPerRun: 1, requestsPerMinute: 5, expiresAt: null,
+      reason: 'Reviewed source exception',
+    }).success).toBe(true);
+    expect(sourcePolicyOverrideInputSchema.safeParse({
+      action: 'clear', hostname: 'example.co.tz', reason: 'Return to automatic recommendation',
     }).success).toBe(true);
   });
 });

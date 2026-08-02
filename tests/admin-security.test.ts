@@ -30,6 +30,8 @@ describe('admin security primitives', () => {
     expect(roleHasPermission('support', 'sessions:revoke')).toBe(true);
     expect(roleHasPermission('quality_reviewer', 'feedback:write')).toBe(true);
     expect(roleHasPermission('quality_reviewer', 'data-platform:write')).toBe(true);
+    expect(roleHasPermission('quality_reviewer', 'data-platform:policy-override')).toBe(false);
+    expect(roleHasPermission('super_admin', 'data-platform:policy-override')).toBe(true);
     expect(roleHasPermission('quality_reviewer', 'users:suspend')).toBe(false);
     expect(roleHasPermission('ai_operations', 'system:read')).toBe(true);
     expect(roleHasPermission('ai_operations', 'data-platform:read')).toBe(true);

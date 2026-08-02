@@ -42,11 +42,13 @@ import {
   getAcquisitionPolicies,
   updateAcquisitionSettings,
   upsertAcquisitionDomainPolicy,
+  recordSourcePolicyShadowOverride,
   updateDataPlatformOrganization,
 } from '@/lib/admin/data-platform';
 import {
   acquisitionDomainPolicyInputSchema,
   acquisitionSettingsUpdateSchema,
+  sourcePolicyOverrideInputSchema,
   externalEvidenceRequestInputSchema,
   resolutionEvaluationSetConfirmationInputSchema,
   resolutionLabelReviewInputSchema,
@@ -119,6 +121,7 @@ export async function GET(request: Request, context: { params: Promise<{ segment
             audit: hasAdminPermission(actor, 'audit:read'),
             dataPlatform: hasAdminPermission(actor, 'data-platform:read'),
             dataPlatformWrite: hasAdminPermission(actor, 'data-platform:write'),
+            dataPlatformPolicyOverride: hasAdminPermission(actor, 'data-platform:policy-override'),
           },
         });
       case 'overview': return Response.json(await getAdminOverview());
@@ -300,6 +303,15 @@ export async function POST(request: Request, context: { params: Promise<{ segmen
       if (!body.success) return Response.json({ error: 'A valid domain policy and audit reason are required' }, { status: 400 });
       const result = await upsertAcquisitionDomainPolicy(actor, body.data);
       logOperationalEvent('admin_mutation_completed', { action: 'data_platform.acquisition_domain_policy.save', requestId: result.requestId });
+      return Response.json(result);
+    }
+    if (segments[0] === 'data-platform' && segments[1] === 'acquisition-policies'
+      && segments[2] === 'shadow-overrides' && !segments[3]) {
+      const actor = await authorizeAdminRequest(request, 'data-platform:policy-override');
+      const body = sourcePolicyOverrideInputSchema.safeParse(await request.json().catch(() => null));
+      if (!body.success) return Response.json({ error: 'Choose a valid source policy and give an audit reason' }, { status: 400 });
+      const result = await recordSourcePolicyShadowOverride(actor, body.data);
+      logOperationalEvent('admin_mutation_completed', { action: `data_platform.source_policy_override.${body.data.action}`, requestId: result.requestId });
       return Response.json(result);
     }
     if (segments[0] === 'data-platform' && segments[1] === 'resolution-evaluation-labels'

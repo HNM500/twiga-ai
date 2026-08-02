@@ -742,6 +742,59 @@ const acquisitionDomainPolicySchema = z.object({
   updatedAt: z.string(),
 });
 
+const sourceClassSchema = z.enum(['standard_public', 'open_licensed', 'provider_licensed', 'limited_use', 'blocked']);
+const sourceUsageScopesSchema = z.object({
+  collect: z.boolean(),
+  internalEnrichment: z.boolean(),
+  publicDisplay: z.boolean(),
+  customerExport: z.boolean(),
+}).strict().superRefine((value, context) => {
+  if (value.internalEnrichment && !value.collect) context.addIssue({ code: 'custom', message: 'Internal use requires collection' });
+  if ((value.publicDisplay || value.customerExport) && (!value.collect || !value.internalEnrichment)) {
+    context.addIssue({ code: 'custom', message: 'Downstream use requires collection and internal enrichment' });
+  }
+});
+
+const sourcePolicyOverrideApplyInputSchema = z.object({
+  action: z.literal('apply'),
+  hostname: z.string().trim().toLowerCase().min(3).max(253),
+  sourceClass: sourceClassSchema,
+  usageScopes: sourceUsageScopesSchema,
+  recurringAllowed: z.boolean(),
+  maxPagesPerRun: z.number().int().min(0).max(10_000),
+  requestsPerMinute: z.number().int().min(0).max(600),
+  expiresAt: z.iso.datetime({ offset: true }).nullable(),
+  reason: z.string().trim().min(8).max(500),
+}).strict().superRefine((value, context) => {
+  if (value.sourceClass === 'blocked' && (Object.values(value.usageScopes).some(Boolean)
+    || value.recurringAllowed || value.maxPagesPerRun > 0 || value.requestsPerMinute > 0)) {
+    context.addIssue({ code: 'custom', message: 'Blocked sources cannot retain collection or usage permissions' });
+  }
+});
+
+export const sourcePolicyOverrideInputSchema = z.discriminatedUnion('action', [
+  sourcePolicyOverrideApplyInputSchema,
+  z.object({
+    action: z.literal('clear'), hostname: z.string().trim().toLowerCase().min(3).max(253),
+    reason: z.string().trim().min(8).max(500),
+  }).strict(),
+]);
+
+const sourcePolicyOverrideSchema = z.object({
+  publicId: z.string().regex(/^policy_override_[0-9a-f]{32}$/),
+  hostname: z.string(),
+  action: z.enum(['apply', 'clear']),
+  sourceClass: sourceClassSchema.nullable(),
+  usageScopes: sourceUsageScopesSchema.nullable(),
+  recurringAllowed: z.boolean().nullable(),
+  maxPagesPerRun: z.number().int().nullable(),
+  requestsPerMinute: z.number().int().nullable(),
+  expiresAt: z.string().nullable(),
+  reason: z.string(),
+  createdBy: z.string(),
+  createdAt: z.string(),
+});
+
 export const acquisitionPoliciesSchema = z.object({
   contractVersion: z.literal('admin-data-platform.v1'),
   settings: acquisitionSettingsRecordSchema,
@@ -769,6 +822,28 @@ export const acquisitionPoliciesSchema = z.object({
       createdAt: z.string(),
     })),
   }),
+  shadowPolicy: z.object({
+    enforcement: z.literal('observe_only'),
+    summary: z.object({
+      total: z.number().int().nonnegative(), automatic: z.number().int().nonnegative(),
+      limited: z.number().int().nonnegative(), needsReview: z.number().int().nonnegative(),
+      blocked: z.number().int().nonnegative(),
+    }),
+    recent: z.array(z.object({
+      publicId: z.string().regex(/^preflight_[0-9a-f]{32}$/),
+      hostname: z.string(), url: z.string().url(), access: z.string(), robots: z.string(), provider: z.string(),
+      recommendation: z.object({
+        sourceClass: sourceClassSchema,
+        decision: z.enum(['allow_bounded', 'allow_with_limits', 'review', 'block']),
+        usageScopes: sourceUsageScopesSchema,
+        recurringAllowed: z.boolean(), maxPagesPerRun: z.number().int(), requestsPerMinute: z.number().int(),
+        reasonCodes: z.array(z.string()),
+      }),
+      override: sourcePolicyOverrideSchema.nullable(),
+      observedAt: z.string(),
+    })),
+    overrideHistory: z.array(sourcePolicyOverrideSchema),
+  }),
   generatedAt: z.string(),
 });
 
@@ -780,6 +855,12 @@ export const acquisitionSettingsUpdateResultSchema = z.object({
 export const acquisitionDomainPolicyResultSchema = z.object({
   contractVersion: z.literal('admin-data-platform.v1'),
   domain: acquisitionDomainPolicySchema,
+});
+
+export const sourcePolicyOverrideResultSchema = z.object({
+  contractVersion: z.literal('admin-data-platform.v1'),
+  enforcement: z.literal('observe_only'),
+  override: sourcePolicyOverrideSchema,
 });
 
 export type DataPlatformOverview = z.infer<typeof dataPlatformOverviewSchema>;
@@ -802,3 +883,4 @@ export type ExternalEvidenceRequestInput = z.infer<typeof externalEvidenceReques
 export type AcquisitionPolicies = z.infer<typeof acquisitionPoliciesSchema>;
 export type AcquisitionSettingsUpdateInput = z.infer<typeof acquisitionSettingsUpdateSchema>;
 export type AcquisitionDomainPolicyInput = z.infer<typeof acquisitionDomainPolicyInputSchema>;
+export type SourcePolicyOverrideInput = z.infer<typeof sourcePolicyOverrideInputSchema>;
