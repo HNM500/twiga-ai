@@ -36,7 +36,24 @@ export const dataPlatformOverviewSchema = z.object({
     snapshot: z.object({ kind: z.literal('snapshot'), label: z.string(), from: z.null(), to: z.string() }),
     recent: z.object({ kind: z.literal('rolling'), label: z.string(), from: z.string(), to: z.string() }),
   }),
-  trends: z.object({ available: z.boolean(), reason: z.string() }),
+  trends: z.object({
+    available: z.boolean(),
+    reason: z.string().nullable(),
+    window: z.object({
+      days: z.number().int().min(0).max(366),
+      from: z.iso.date().nullable(),
+      to: z.iso.date().nullable(),
+    }),
+    series: z.array(z.object({
+      date: z.iso.date(),
+      evidenceCaptured: z.number().int().nonnegative(),
+      organizationsCreated: z.number().int().nonnegative(),
+      runsCompleted: z.number().int().nonnegative(),
+      runsFailed: z.number().int().nonnegative(),
+      reviewsOpened: z.number().int().nonnegative(),
+      reviewsResolved: z.number().int().nonnegative(),
+    })).max(366),
+  }),
   metrics: z.object({
     organizations: z.number(), publishedOrganizations: z.number(), publishableOrganizations: z.number(),
     sources: z.number(), operationalSources: z.number(), blockedSources: z.number(), observations: z.number(),

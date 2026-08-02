@@ -39,7 +39,21 @@ const validOverview = {
     snapshot: { kind: 'snapshot', label: 'Current totals', from: null, to: '2026-07-28T12:00:00.000Z' },
     recent: { kind: 'rolling', label: 'Last 24 hours', from: '2026-07-27T12:00:00.000Z', to: '2026-07-28T12:00:00.000Z' },
   },
-  trends: { available: false, reason: 'No aggregate.' },
+  trends: {
+    available: false,
+    reason: 'No completed activity has been recorded in the last 30 days.',
+    window: { days: 2, from: '2026-07-27', to: '2026-07-28' },
+    series: [
+      {
+        date: '2026-07-27', evidenceCaptured: 0, organizationsCreated: 0,
+        runsCompleted: 0, runsFailed: 0, reviewsOpened: 0, reviewsResolved: 0,
+      },
+      {
+        date: '2026-07-28', evidenceCaptured: 0, organizationsCreated: 0,
+        runsCompleted: 0, runsFailed: 0, reviewsOpened: 0, reviewsResolved: 0,
+      },
+    ],
+  },
   metrics: {
     organizations: 0, publishedOrganizations: 0, publishableOrganizations: 0, sources: 0,
     operationalSources: 0, blockedSources: 0, observations: 0, openReviews: 0, actionableEntityMatchReviews: 0, urgentReviews: 0,
@@ -61,6 +75,23 @@ const validRun = {
 describe('Data Platform gateway contract', () => {
   test('accepts the current versioned Core overview', () => {
     expect(dataPlatformOverviewSchema.safeParse(validOverview).success).toBe(true);
+  });
+
+  test('accepts bounded daily activity and rejects negative or malformed trend points', () => {
+    const activeOverview = {
+      ...validOverview,
+      trends: {
+        ...validOverview.trends,
+        available: true,
+        reason: null,
+        series: [{ ...validOverview.trends.series[0], evidenceCaptured: 18 }],
+      },
+    };
+    expect(dataPlatformOverviewSchema.safeParse(activeOverview).success).toBe(true);
+    expect(dataPlatformOverviewSchema.safeParse({
+      ...activeOverview,
+      trends: { ...activeOverview.trends, series: [{ ...activeOverview.trends.series[0], reviewsResolved: -1 }] },
+    }).success).toBe(false);
   });
 
   test('fails closed when Core changes the version or health vocabulary', () => {
