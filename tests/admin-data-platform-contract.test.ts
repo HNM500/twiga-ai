@@ -139,11 +139,19 @@ describe('Data Platform gateway contract', () => {
         collectionMethod: 'csv', publicationStatus: 'internal_only', evidenceUrl: null,
         observedFields: { 'identity.legal_name': 'Example Limited' }, stableIdentifiers: [],
       },
-      source: null, candidates: [], contradictions: [],
+      source: null,
+      candidates: [{
+        publicId: `person_${'2'.repeat(32)}`, subjectKind: 'person', name: 'Asha Mushi', lifecycleState: 'review',
+        score: 1, method: 'exact_match_key', identifiers: [], fields: [],
+      }],
+      resolvedEntity: null,
+      contradictions: [],
       recommendedAction: { action: 'create_new', candidatePublicId: null, label: 'Create provisional organization', rationale: 'No candidate.' },
       availableActions: { createNew: true, linkExisting: true, dismiss: true, assignment: { available: false, reason: 'Not supported.' } },
     };
-    expect(dataPlatformReviewDetailSchema.safeParse(detail).success).toBe(true);
+    const parsed = dataPlatformReviewDetailSchema.safeParse(detail);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.candidates[0]?.subjectKind).toBe('person');
     expect(dataPlatformReviewDetailSchema.safeParse({ ...detail, case: { ...detail.case, confidence: 1.2 } }).success).toBe(false);
     expect(dataPlatformReviewDetailSchema.safeParse({ ...detail, availableActions: { ...detail.availableActions, assignment: { available: true, reason: 'Drift.' } } }).success).toBe(false);
   });
