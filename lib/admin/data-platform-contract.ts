@@ -74,6 +74,67 @@ export const resolutionQualitySampleReviewResultSchema = z.object({
   samplePublicId: z.string(), outcome: z.enum(['correct', 'incorrect', 'uncertain']), reviewedAt: z.string(),
 });
 
+const resolutionAcceptanceMetricsSchema = z.object({
+  admittedEvidence: z.number().int().nonnegative(),
+  evaluatedCandidates: z.number().int().nonnegative(),
+  automaticDecisions: z.number().int().nonnegative(),
+  automaticLinks: z.number().int().nonnegative(),
+  provisionalCreates: z.number().int().nonnegative(),
+  sampledDecisions: z.number().int().nonnegative(),
+  reviewedSamples: z.number().int().nonnegative(),
+  correctSamples: z.number().int().nonnegative(),
+  incorrectSamples: z.number().int().nonnegative(),
+  uncertainSamples: z.number().int().nonnegative(),
+  humanExceptions: z.number().int().nonnegative(),
+  outsideCohort: z.number().int().nonnegative(),
+  dormant: z.number().int().nonnegative(),
+  failedAttempts: z.number().int().nonnegative(),
+  overrides: z.number().int().nonnegative(),
+  potentialDuplicateCreations: z.number().int().nonnegative(),
+  publicUseApprovals: z.number().int().nonnegative(),
+  unsafeProvisionalVisibility: z.number().int().nonnegative(),
+  sourceCount: z.number().int().nonnegative(),
+  sourceTypes: z.array(z.string()),
+});
+
+export const resolutionAcceptanceSchema = z.object({
+  contractVersion: z.literal('identity-resolution-acceptance.v1'),
+  generatedAt: z.string(),
+  checkpoint: z.object({
+    publicId: z.string().regex(/^resolution_acceptance_[0-9a-f]{32}$/),
+    status: z.enum(['collecting', 'review_pending', 'passed', 'failed', 'cancelled']),
+    settingsVersion: z.number().int().positive(),
+    targetAutomaticDecisions: z.number().int().min(10).max(500),
+    reason: z.string(), startedBy: z.string(), startedAt: z.string(),
+    completedAt: z.string().nullable(), cancelledAt: z.string().nullable(),
+    metrics: resolutionAcceptanceMetricsSchema,
+    blockingIssues: z.array(z.string()),
+  }).nullable(),
+  requirements: z.object({
+    automaticDecisionTargetMinimum: z.number().int().min(10),
+    mode: z.literal('canary'),
+    canaryPercentRange: z.object({ minimum: z.number().int(), maximum: z.number().int() }),
+    qualitySamplePercent: z.literal(100),
+    exactIdentifierLinkEnabled: z.literal(true),
+    provisionalCreateEnabled: z.literal(true),
+    compositeLinkEnabled: z.literal(false),
+    passConditions: z.array(z.string()),
+  }),
+});
+
+export const resolutionAcceptanceCommandSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('start'), targetAutomaticDecisions: z.number().int().min(10).max(500).default(10),
+    reason: z.string().trim().min(8).max(500),
+  }).strict(),
+  z.object({
+    action: z.literal('cancel'), publicId: z.string().regex(/^resolution_acceptance_[0-9a-f]{32}$/),
+    reason: z.string().trim().min(8).max(500),
+  }).strict(),
+]);
+
+export type ResolutionAcceptanceCommand = z.infer<typeof resolutionAcceptanceCommandSchema>;
+
 export type ResolutionQualitySampleReviewInput = z.infer<typeof resolutionQualitySampleReviewInputSchema>;
 const runSchema = z.object({
   publicId: z.string(), sourceKey: z.string(), sourceName: z.string(), connectorKey: z.string(),

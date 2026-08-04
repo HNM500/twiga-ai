@@ -31,6 +31,8 @@ import {
   resolutionLabelReviewInputSchema,
   resolutionQualitySampleListSchema,
   resolutionQualitySampleReviewInputSchema,
+  resolutionAcceptanceSchema,
+  resolutionAcceptanceCommandSchema,
 } from '@/lib/admin/data-platform-contract';
 
 const validOverview = {
@@ -474,5 +476,39 @@ describe('Identity resolution quality sample contract', () => {
     }).success).toBe(true);
     expect(resolutionQualitySampleReviewInputSchema.safeParse({ outcome: 'correct' }).success).toBe(true);
     expect(resolutionQualitySampleReviewInputSchema.safeParse({ outcome: 'invented' }).success).toBe(false);
+  });
+});
+
+describe('Identity resolution acceptance contract', () => {
+  test('accepts a bounded production checkpoint and rejects an undersized run', () => {
+    const metrics = {
+      admittedEvidence: 20, evaluatedCandidates: 12, automaticDecisions: 10,
+      automaticLinks: 7, provisionalCreates: 3, sampledDecisions: 10,
+      reviewedSamples: 10, correctSamples: 10, incorrectSamples: 0,
+      uncertainSamples: 0, humanExceptions: 2, outsideCohort: 8, dormant: 0,
+      failedAttempts: 0, overrides: 0, potentialDuplicateCreations: 0,
+      publicUseApprovals: 0, unsafeProvisionalVisibility: 0,
+      sourceCount: 2, sourceTypes: ['regulator', 'web'],
+    };
+    expect(resolutionAcceptanceSchema.safeParse({
+      contractVersion: 'identity-resolution-acceptance.v1', generatedAt: '2026-08-04T12:00:00.000Z',
+      checkpoint: {
+        publicId: `resolution_acceptance_${'1'.repeat(32)}`, status: 'passed', settingsVersion: 7,
+        targetAutomaticDecisions: 10, reason: 'Production acceptance cohort', startedBy: 'admin-1',
+        startedAt: '2026-08-04T10:00:00.000Z', completedAt: '2026-08-04T12:00:00.000Z', cancelledAt: null,
+        metrics, blockingIssues: [],
+      },
+      requirements: {
+        automaticDecisionTargetMinimum: 10, mode: 'canary', canaryPercentRange: { minimum: 1, maximum: 25 },
+        qualitySamplePercent: 100, exactIdentifierLinkEnabled: true, provisionalCreateEnabled: true,
+        compositeLinkEnabled: false, passConditions: ['Review every decision.'],
+      },
+    }).success).toBe(true);
+    expect(resolutionAcceptanceCommandSchema.safeParse({
+      action: 'start', targetAutomaticDecisions: 10, reason: 'Production acceptance cohort',
+    }).success).toBe(true);
+    expect(resolutionAcceptanceCommandSchema.safeParse({
+      action: 'start', targetAutomaticDecisions: 9, reason: 'Production acceptance cohort',
+    }).success).toBe(false);
   });
 });

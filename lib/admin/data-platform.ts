@@ -42,6 +42,8 @@ import {
   resolutionQualitySampleListSchema,
   resolutionQualitySampleReviewInputSchema,
   resolutionQualitySampleReviewResultSchema,
+  resolutionAcceptanceSchema,
+  resolutionAcceptanceCommandSchema,
   resolutionEvaluationSetDetailSchema,
   resolutionEvaluationSetConfirmationInputSchema,
   resolutionEvaluationSetConfirmationResultSchema,
@@ -51,6 +53,7 @@ import {
   type ResolutionEvaluationSetConfirmationInput,
   type ResolutionLabelReviewInput,
   type ResolutionQualitySampleReviewInput,
+  type ResolutionAcceptanceCommand,
   type ExternalEvidenceRequestInput,
   type AcquisitionDomainPolicyInput,
   type AcquisitionSettingsUpdateInput,
@@ -157,6 +160,41 @@ export async function reviewResolutionQualitySample(
     action: `data_platform.resolution_quality_sample.${input.outcome}`,
     targetType: 'resolution_quality_sample', targetId: publicId, reason: input.note ?? 'Routine identity automation quality check',
     requestId, beforeState: null, afterState: parsed.data, metadata: { service: 'twiga-core' },
+  });
+  return { ok: true, requestId, result: parsed.data };
+}
+
+export async function getResolutionAcceptance(actor: AdminActor) {
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    '/internal/v1/admin/data-platform/resolution-acceptance',
+    'data-platform:read',
+  );
+  const parsed = resolutionAcceptanceSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Core returned an incompatible acceptance checkpoint');
+  return parsed.data;
+}
+
+export async function commandResolutionAcceptance(
+  actor: AdminActor,
+  rawInput: ResolutionAcceptanceCommand,
+) {
+  const input = resolutionAcceptanceCommandSchema.parse(rawInput);
+  const requestId = crypto.randomUUID();
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    '/internal/v1/admin/data-platform/resolution-acceptance',
+    'data-platform:write',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+  const parsed = resolutionAcceptanceSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Core returned an incompatible acceptance checkpoint');
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: `data_platform.resolution_acceptance.${input.action}`,
+    targetType: 'resolution_acceptance', targetId: parsed.data.checkpoint?.publicId ?? 'none',
+    reason: input.reason, requestId, beforeState: null, afterState: parsed.data.checkpoint,
+    metadata: { service: 'twiga-core' },
   });
   return { ok: true, requestId, result: parsed.data };
 }

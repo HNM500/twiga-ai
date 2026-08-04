@@ -48,6 +48,8 @@ import {
   updateEffectiveResolution,
   getResolutionQualitySamples,
   reviewResolutionQualitySample,
+  getResolutionAcceptance,
+  commandResolutionAcceptance,
 } from '@/lib/admin/data-platform';
 import {
   acquisitionDomainPolicyInputSchema,
@@ -59,6 +61,7 @@ import {
   organizationDossierUpdateSchema,
   effectiveResolutionSettingsUpdateSchema,
   resolutionQualitySampleReviewInputSchema,
+  resolutionAcceptanceCommandSchema,
 } from '@/lib/admin/data-platform-contract';
 
 export const dynamic = 'force-dynamic';
@@ -162,6 +165,9 @@ export async function GET(request: Request, context: { params: Promise<{ segment
           const state = url.searchParams.get('state') ?? 'pending';
           if (!['pending', 'reviewed', 'all'].includes(state)) return Response.json({ error: 'Invalid quality-sample state' }, { status: 400 });
           return Response.json(await getResolutionQualitySamples(actor, state as 'pending' | 'reviewed' | 'all'));
+        }
+        if (segments[1] === 'resolution-acceptance' && !segments[2] && !url.search) {
+          return Response.json(await getResolutionAcceptance(actor));
         }
         if (segments[1] === 'runs') {
           const allowedKeys = ['state', 'sourceKey', 'connectorKey', 'createdFrom', 'createdTo', 'cursor', 'limit', 'sort'] as const;
@@ -316,6 +322,14 @@ export async function POST(request: Request, context: { params: Promise<{ segmen
       if (!body.success) return Response.json({ error: 'Choose whether the sampled decision was correct' }, { status: 400 });
       const result = await reviewResolutionQualitySample(actor, segments[2], body.data);
       logOperationalEvent('admin_mutation_completed', { action: `data_platform.resolution_quality_sample.${body.data.outcome}`, requestId: result.requestId });
+      return Response.json(result);
+    }
+    if (segments[0] === 'data-platform' && segments[1] === 'resolution-acceptance' && !segments[2]) {
+      const actor = await authorizeAdminRequest(request, 'data-platform:write');
+      const body = resolutionAcceptanceCommandSchema.safeParse(await request.json().catch(() => null));
+      if (!body.success) return Response.json({ error: 'A valid checkpoint action and audit reason are required' }, { status: 400 });
+      const result = await commandResolutionAcceptance(actor, body.data);
+      logOperationalEvent('admin_mutation_completed', { action: `data_platform.resolution_acceptance.${body.data.action}`, requestId: result.requestId });
       return Response.json(result);
     }
     if (segments[0] === 'data-platform' && segments[1] === 'acquisition-policies'
