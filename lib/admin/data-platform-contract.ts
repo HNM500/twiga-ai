@@ -9,6 +9,7 @@ const effectiveResolutionSettingsSchema = z.object({
   canaryPercent: z.number().int().min(0).max(100),
   exactIdentifierLinkEnabled: z.boolean(), provisionalCreateEnabled: z.boolean(),
   compositeLinkEnabled: z.boolean(), dormantAfterEnrichment: z.boolean(),
+  qualitySamplePercent: z.number().int().min(0).max(100),
   policyVersion: z.string(), updatedAt: z.string(),
 });
 
@@ -18,6 +19,15 @@ export const effectiveResolutionSchema = z.object({
   settings: effectiveResolutionSettingsSchema,
   stateCounts: z.record(z.enum(['pending', 'enriching', 'linked', 'provisional', 'exception', 'unresolved']), z.number().int().nonnegative()),
   work: z.object({ automation: z.number().int().nonnegative(), exceptions: z.number().int().nonnegative() }),
+  quality: z.object({
+    windowDays: z.number().int().positive(), admittedEvidence: z.number().int().nonnegative(),
+    automaticDecisions: z.number().int().nonnegative(), automaticLinks: z.number().int().nonnegative(),
+    provisionalCreates: z.number().int().nonnegative(), humanExceptions: z.number().int().nonnegative(),
+    reviewsPer1000: z.number().nonnegative(), sampledDecisions: z.number().int().nonnegative(),
+    reviewedSamples: z.number().int().nonnegative(), falseMerges: z.number().int().nonnegative(),
+    missedMatches: z.number().int().nonnegative(), overrides: z.number().int().nonnegative(),
+    potentialDuplicateCreations: z.number().int().nonnegative(),
+  }),
 });
 
 export const effectiveResolutionSettingsUpdateSchema = z.object({
@@ -25,12 +35,46 @@ export const effectiveResolutionSettingsUpdateSchema = z.object({
   mode: z.enum(['observe_only', 'canary', 'active']), canaryPercent: z.number().int().min(0).max(100),
   exactIdentifierLinkEnabled: z.boolean(), provisionalCreateEnabled: z.boolean(),
   compositeLinkEnabled: z.boolean(), dormantAfterEnrichment: z.boolean(),
+  qualitySamplePercent: z.number().int().min(0).max(100),
 }).strict();
 
 export const effectiveResolutionSettingsUpdateResultSchema = z.object({
   contractVersion: z.literal('effective-identity-resolution.v1'),
   settings: effectiveResolutionSettingsSchema,
 });
+
+export const resolutionQualitySampleListSchema = z.object({
+  contractVersion: z.literal('identity-resolution-quality-samples.v1'),
+  generatedAt: z.string(),
+  samples: z.array(z.object({
+    publicId: z.string().regex(/^resolution_quality_sample_[0-9a-f]{32}$/),
+    decision: z.enum(['link_existing', 'create_provisional']),
+    targetPublicId: z.string().regex(/^(org|person)_[0-9a-f]{32}$/),
+    targetName: z.string().min(1), confidence: z.number().min(0).max(1), reasonCodes: z.array(z.string()),
+    policyVersion: z.string(), sampledAt: z.string(),
+    incoming: z.object({ name: z.string(), kind: z.string(), source: z.string(), evidenceUrl: z.string().nullable() }),
+    review: z.object({
+      outcome: z.enum(['correct', 'incorrect', 'uncertain']), note: z.string().nullable(), reviewedAt: z.string().nullable(),
+    }).nullable(),
+  })),
+});
+
+export const resolutionQualitySampleReviewInputSchema = z.object({
+  outcome: z.enum(['correct', 'incorrect', 'uncertain']),
+  correctedTargetPublicId: z.string().regex(/^(org|person)_[0-9a-f]{32}$/).optional(),
+  note: z.string().trim().max(1000).optional(),
+}).strict().superRefine((value, context) => {
+  if (value.outcome !== 'incorrect' && value.correctedTargetPublicId) {
+    context.addIssue({ code: 'custom', path: ['correctedTargetPublicId'], message: 'A corrected target is only valid for an incorrect decision' });
+  }
+});
+
+export const resolutionQualitySampleReviewResultSchema = z.object({
+  contractVersion: z.literal('identity-resolution-quality-samples.v1'),
+  samplePublicId: z.string(), outcome: z.enum(['correct', 'incorrect', 'uncertain']), reviewedAt: z.string(),
+});
+
+export type ResolutionQualitySampleReviewInput = z.infer<typeof resolutionQualitySampleReviewInputSchema>;
 const runSchema = z.object({
   publicId: z.string(), sourceKey: z.string(), sourceName: z.string(), connectorKey: z.string(),
   parserVersion: z.string().optional(), triggerKind: z.string(), state: z.string(), itemsSeen: z.number(), itemsAccepted: z.number(),
