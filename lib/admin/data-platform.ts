@@ -36,6 +36,9 @@ import {
   externalEvidenceListSchema,
   externalEvidenceRequestInputSchema,
   externalEvidenceSubmitResultSchema,
+  effectiveResolutionSchema,
+  effectiveResolutionSettingsUpdateSchema,
+  effectiveResolutionSettingsUpdateResultSchema,
   resolutionEvaluationSetDetailSchema,
   resolutionEvaluationSetConfirmationInputSchema,
   resolutionEvaluationSetConfirmationResultSchema,
@@ -86,6 +89,33 @@ export async function getDataPlatformOverview(actor: AdminActor) {
   const parsed = dataPlatformOverviewSchema.safeParse(body);
   if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible dashboard contract');
   return parsed.data;
+}
+
+export async function getEffectiveResolution(actor: AdminActor) {
+  const body = await coreAdminRequest<unknown>(actor, '/internal/v1/admin/data-platform/effective-resolution', 'data-platform:read');
+  const parsed = effectiveResolutionSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Core returned an incompatible effective-resolution contract');
+  return parsed.data;
+}
+
+export async function updateEffectiveResolution(actor: AdminActor, rawInput: unknown) {
+  const input = effectiveResolutionSettingsUpdateSchema.parse(rawInput);
+  const requestId = crypto.randomUUID();
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    '/internal/v1/admin/data-platform/effective-resolution',
+    'data-platform:write',
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+  const parsed = effectiveResolutionSettingsUpdateResultSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Core returned incompatible identity-automation settings');
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: 'data_platform.identity_automation.updated', targetType: 'effective_identity_resolution_settings', targetId: 'singleton',
+    reason: input.reason, requestId, beforeState: { expectedVersion: input.expectedVersion }, afterState: parsed.data.settings,
+    metadata: { service: 'twiga-core' },
+  });
+  return { ok: true, requestId, result: parsed.data };
 }
 
 export async function getDataPlatformRuns(actor: AdminActor, rawInput: Record<string, string | undefined>) {

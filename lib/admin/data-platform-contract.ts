@@ -3,6 +3,34 @@ import { z } from 'zod';
 const actionSchema = z.object({ label: z.string(), href: z.string().startsWith('/data-platform') });
 const stageKeySchema = z.enum(['capture', 'extract', 'normalise', 'resolve', 'enrich', 'review', 'ready', 'publish']);
 const operationalStatusSchema = z.enum(['queued', 'active', 'slow', 'stalled', 'completed', 'completed_with_errors', 'failed', 'cancelled']);
+const effectiveResolutionSettingsSchema = z.object({
+  version: z.number().int().positive(),
+  mode: z.enum(['observe_only', 'canary', 'active']),
+  canaryPercent: z.number().int().min(0).max(100),
+  exactIdentifierLinkEnabled: z.boolean(), provisionalCreateEnabled: z.boolean(),
+  compositeLinkEnabled: z.boolean(), dormantAfterEnrichment: z.boolean(),
+  policyVersion: z.string(), updatedAt: z.string(),
+});
+
+export const effectiveResolutionSchema = z.object({
+  contractVersion: z.literal('effective-identity-resolution.v1'),
+  generatedAt: z.string(),
+  settings: effectiveResolutionSettingsSchema,
+  stateCounts: z.record(z.enum(['pending', 'enriching', 'linked', 'provisional', 'exception', 'unresolved']), z.number().int().nonnegative()),
+  work: z.object({ automation: z.number().int().nonnegative(), exceptions: z.number().int().nonnegative() }),
+});
+
+export const effectiveResolutionSettingsUpdateSchema = z.object({
+  expectedVersion: z.number().int().positive(), reason: z.string().trim().min(8).max(500),
+  mode: z.enum(['observe_only', 'canary', 'active']), canaryPercent: z.number().int().min(0).max(100),
+  exactIdentifierLinkEnabled: z.boolean(), provisionalCreateEnabled: z.boolean(),
+  compositeLinkEnabled: z.boolean(), dormantAfterEnrichment: z.boolean(),
+}).strict();
+
+export const effectiveResolutionSettingsUpdateResultSchema = z.object({
+  contractVersion: z.literal('effective-identity-resolution.v1'),
+  settings: effectiveResolutionSettingsSchema,
+});
 const runSchema = z.object({
   publicId: z.string(), sourceKey: z.string(), sourceName: z.string(), connectorKey: z.string(),
   parserVersion: z.string().optional(), triggerKind: z.string(), state: z.string(), itemsSeen: z.number(), itemsAccepted: z.number(),
@@ -60,6 +88,7 @@ export const dataPlatformOverviewSchema = z.object({
     openReviews: z.number(), actionableEntityMatchReviews: z.number(), urgentReviews: z.number(), ingestionRuns: z.number(), activeRuns: z.number(),
     failedRuns24h: z.number(), failedItems: z.number(), retryingItems: z.number(),
   }),
+  effectiveResolution: effectiveResolutionSchema,
   currentRun: runSchema.extend({ isActive: z.boolean(), lastActivityAt: z.string().nullable() }).nullable(),
   attentionItems: z.array(z.object({
     key: z.string(), severity: z.enum(['info', 'warning', 'critical']), count: z.number(),
@@ -271,6 +300,7 @@ export const dataPlatformOrganizationListSchema = z.object({
   organizations: z.array(z.object({
     publicId: z.string().regex(/^org_[0-9a-f]{32}$/), canonicalName: z.string(), entityKind: organizationEntityKindSchema,
     operatingStatus: organizationOperatingStatusSchema, lifecycleState: organizationLifecycleSchema,
+    identityState: z.enum(['linked', 'provisional']), maturity: z.enum(['Discovered', 'Supported', 'Verified']),
     version: z.number().int().positive(), selectedFieldCount: z.number().int().nonnegative(),
     confidence: z.number().min(0).max(1).nullable(),
     freshness: z.object({ state: z.enum(['fresh', 'stale', 'unknown']), staleFieldCount: z.number().int().nonnegative(), nextExpiryAt: z.string().nullable() }),
@@ -295,6 +325,12 @@ export const dataPlatformOrganizationDetailSchema = z.object({
     publicId: z.string().regex(/^org_[0-9a-f]{32}$/), canonicalName: z.string(), entityKind: organizationEntityKindSchema,
     countryCode: z.string(), operatingStatus: organizationOperatingStatusSchema, lifecycleState: organizationLifecycleSchema,
     version: z.number().int().positive(), createdAt: z.string(), updatedAt: z.string(), archivedAt: z.string().nullable(),
+  }),
+  effectiveResolution: z.object({
+    identityState: z.enum(['linked', 'provisional']), maturity: z.enum(['Discovered', 'Supported', 'Verified']),
+    actionRequired: z.boolean(), action: z.literal('review_exception').nullable(),
+    plainEnglishReason: z.string(), lastChangedAt: z.string().nullable(),
+    productStates: z.array(z.object({ product: readinessProductSchema, status: readinessStatusSchema })),
   }),
   names: z.array(z.object({ name: z.string(), kind: z.string(), languageCode: z.string().nullable(), isPrimary: z.boolean(), validFrom: z.unknown().nullable(), validTo: z.unknown().nullable(), createdAt: z.string() })),
   categories: z.array(z.object({ code: z.string(), label: z.string(), labelSw: z.string().nullable(), isPrimary: z.boolean(), confidence: z.number().min(0).max(1).nullable() })),

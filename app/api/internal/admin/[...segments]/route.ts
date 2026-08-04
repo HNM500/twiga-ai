@@ -44,6 +44,8 @@ import {
   upsertAcquisitionDomainPolicy,
   recordSourcePolicyShadowOverride,
   updateDataPlatformOrganization,
+  getEffectiveResolution,
+  updateEffectiveResolution,
 } from '@/lib/admin/data-platform';
 import {
   acquisitionDomainPolicyInputSchema,
@@ -53,6 +55,7 @@ import {
   resolutionEvaluationSetConfirmationInputSchema,
   resolutionLabelReviewInputSchema,
   organizationDossierUpdateSchema,
+  effectiveResolutionSettingsUpdateSchema,
 } from '@/lib/admin/data-platform-contract';
 
 export const dynamic = 'force-dynamic';
@@ -149,6 +152,9 @@ export async function GET(request: Request, context: { params: Promise<{ segment
         if (segments[1] === 'runs' && segments[2]) {
           return Response.json(await getDataPlatformRun(actor, segments[2]));
         }
+        if (segments[1] === 'effective-resolution' && !segments[2] && !url.search) {
+          return Response.json(await getEffectiveResolution(actor));
+        }
         if (segments[1] === 'runs') {
           const allowedKeys = ['state', 'sourceKey', 'connectorKey', 'createdFrom', 'createdTo', 'cursor', 'limit', 'sort'] as const;
           const unknownKeys = [...url.searchParams.keys()].filter((key) => !allowedKeys.includes(key as typeof allowedKeys[number]));
@@ -226,6 +232,14 @@ export async function GET(request: Request, context: { params: Promise<{ segment
 export async function PATCH(request: Request, context: { params: Promise<{ segments: string[] }> }) {
   const { segments } = await context.params;
   try {
+    if (segments[0] === 'data-platform' && segments[1] === 'effective-resolution' && !segments[2]) {
+      const actor = await authorizeAdminRequest(request, 'data-platform:write');
+      const body = effectiveResolutionSettingsUpdateSchema.safeParse(await request.json().catch(() => null));
+      if (!body.success) return Response.json({ error: 'Valid identity automation settings and an audit reason are required' }, { status: 400 });
+      const result = await updateEffectiveResolution(actor, body.data);
+      logOperationalEvent('admin_mutation_completed', { action: 'data_platform.identity_automation.update', requestId: result.requestId });
+      return Response.json(result);
+    }
     if (segments[0] === 'data-platform' && segments[1] === 'organizations' && segments[2] && !segments[3]) {
       const actor = await authorizeAdminRequest(request, 'data-platform:write');
       const body = organizationDossierUpdateSchema.safeParse(await request.json().catch(() => null));
