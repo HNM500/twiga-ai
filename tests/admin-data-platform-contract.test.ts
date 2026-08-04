@@ -59,6 +59,18 @@ const validOverview = {
     operationalSources: 0, blockedSources: 0, observations: 0, openReviews: 0, actionableEntityMatchReviews: 0, urgentReviews: 0,
     ingestionRuns: 0, activeRuns: 0, failedRuns24h: 0, failedItems: 0, retryingItems: 0,
   },
+  effectiveResolution: {
+    contractVersion: 'effective-identity-resolution.v1',
+    generatedAt: '2026-07-28T12:00:00.000Z',
+    settings: {
+      version: 2, mode: 'active', canaryPercent: 100, exactIdentifierLinkEnabled: true,
+      provisionalCreateEnabled: true, compositeLinkEnabled: false,
+      dormantAfterEnrichment: true, policyVersion: 'effective-identity-resolution.v1',
+      updatedAt: '2026-07-28T12:00:00.000Z',
+    },
+    stateCounts: { pending: 0, enriching: 0, linked: 0, provisional: 0, exception: 0, unresolved: 0 },
+    work: { automation: 0, exceptions: 0 },
+  },
   currentRun: null,
   attentionItems: [], readiness: [], recentActivity: [], recentRuns: [], sources: [], reviewBreakdown: [],
 };
@@ -191,7 +203,7 @@ describe('Data Platform gateway contract', () => {
   test('accepts bounded business lists and fails closed on invented readiness states', () => {
     const organization = {
       publicId: `org_${'1'.repeat(32)}`, canonicalName: 'Example Tanzania Limited', entityKind: 'legal_entity',
-      operatingStatus: 'active', lifecycleState: 'review', version: 1, selectedFieldCount: 2, confidence: 0.91,
+      operatingStatus: 'active', lifecycleState: 'review', identityState: 'linked', maturity: 'Supported', version: 1, selectedFieldCount: 2, confidence: 0.91,
       freshness: { state: 'fresh', staleFieldCount: 0, nextExpiryAt: '2026-08-28T12:00:00.000Z' },
       openReviewCount: 1, productReadiness: [{ profileKey: 'directory_ready', status: 'review_required', evaluatedAt: '2026-07-28T12:00:00.000Z', expiresAt: null, blockingReasonCodes: ['review_open'] }],
       updatedAt: '2026-07-28T12:00:00.000Z',
@@ -213,6 +225,7 @@ describe('Data Platform gateway contract', () => {
     const detail = {
       contractVersion: 'admin-data-platform.v1', generatedAt: '2026-07-28T12:00:00.000Z',
       organization: { publicId: `org_${'1'.repeat(32)}`, canonicalName: 'Example Tanzania Limited', entityKind: 'legal_entity', countryCode: 'TZ', operatingStatus: 'active', lifecycleState: 'review', version: 1, createdAt: '2026-07-28T10:00:00.000Z', updatedAt: '2026-07-28T12:00:00.000Z', archivedAt: null },
+      effectiveResolution: { identityState: 'linked', maturity: 'Supported', actionRequired: false, action: null, plainEnglishReason: 'Supported identity.', lastChangedAt: '2026-07-28T12:00:00.000Z', productStates: [] },
       names: [], categories: [], services: [], locations: [], servicePoints: [], relationships: [], people: [], licences: [], canonicalFields: [], alternativeObservations: [], conflicts: [], productReadiness: [], reviews: [], history: [],
       quality: { averageConfidence: null, confidenceBand: 'unknown', highConfidenceCount: 0, mediumConfidenceCount: 0, needsReviewCount: 0, completeness: { score: 13, populated: 1, expected: 8 }, openReviewCount: 0 },
       editOptions: { entityKinds: ['legal_entity'], operatingStatuses: ['active'], categories: [], services: [], relationshipRoles: [] },
