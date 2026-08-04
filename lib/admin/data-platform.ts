@@ -39,6 +39,9 @@ import {
   effectiveResolutionSchema,
   effectiveResolutionSettingsUpdateSchema,
   effectiveResolutionSettingsUpdateResultSchema,
+  resolutionQualitySampleListSchema,
+  resolutionQualitySampleReviewInputSchema,
+  resolutionQualitySampleReviewResultSchema,
   resolutionEvaluationSetDetailSchema,
   resolutionEvaluationSetConfirmationInputSchema,
   resolutionEvaluationSetConfirmationResultSchema,
@@ -47,6 +50,7 @@ import {
   resolutionLabelReviewResultSchema,
   type ResolutionEvaluationSetConfirmationInput,
   type ResolutionLabelReviewInput,
+  type ResolutionQualitySampleReviewInput,
   type ExternalEvidenceRequestInput,
   type AcquisitionDomainPolicyInput,
   type AcquisitionSettingsUpdateInput,
@@ -114,6 +118,45 @@ export async function updateEffectiveResolution(actor: AdminActor, rawInput: unk
     action: 'data_platform.identity_automation.updated', targetType: 'effective_identity_resolution_settings', targetId: 'singleton',
     reason: input.reason, requestId, beforeState: { expectedVersion: input.expectedVersion }, afterState: parsed.data.settings,
     metadata: { service: 'twiga-core' },
+  });
+  return { ok: true, requestId, result: parsed.data };
+}
+
+export async function getResolutionQualitySamples(
+  actor: AdminActor,
+  state: 'pending' | 'reviewed' | 'all' = 'pending',
+) {
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    `/internal/v1/admin/data-platform/resolution-quality-samples?state=${state}&limit=50`,
+    'data-platform:read',
+  );
+  const parsed = resolutionQualitySampleListSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Core returned incompatible quality samples');
+  return parsed.data;
+}
+
+export async function reviewResolutionQualitySample(
+  actor: AdminActor,
+  publicId: string,
+  rawInput: ResolutionQualitySampleReviewInput,
+) {
+  if (!/^resolution_quality_sample_[0-9a-f]{32}$/.test(publicId)) throw new AdminAccessError(400, 'Invalid quality-sample identifier');
+  const input = resolutionQualitySampleReviewInputSchema.parse(rawInput);
+  const requestId = crypto.randomUUID();
+  const body = await coreAdminRequest<unknown>(
+    actor,
+    `/internal/v1/admin/data-platform/resolution-quality-samples/${encodeURIComponent(publicId)}/review`,
+    'data-platform:write',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+  const parsed = resolutionQualitySampleReviewResultSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Core returned an incompatible quality review result');
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: `data_platform.resolution_quality_sample.${input.outcome}`,
+    targetType: 'resolution_quality_sample', targetId: publicId, reason: input.note ?? 'Routine identity automation quality check',
+    requestId, beforeState: null, afterState: parsed.data, metadata: { service: 'twiga-core' },
   });
   return { ok: true, requestId, result: parsed.data };
 }

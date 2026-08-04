@@ -46,6 +46,8 @@ import {
   updateDataPlatformOrganization,
   getEffectiveResolution,
   updateEffectiveResolution,
+  getResolutionQualitySamples,
+  reviewResolutionQualitySample,
 } from '@/lib/admin/data-platform';
 import {
   acquisitionDomainPolicyInputSchema,
@@ -56,6 +58,7 @@ import {
   resolutionLabelReviewInputSchema,
   organizationDossierUpdateSchema,
   effectiveResolutionSettingsUpdateSchema,
+  resolutionQualitySampleReviewInputSchema,
 } from '@/lib/admin/data-platform-contract';
 
 export const dynamic = 'force-dynamic';
@@ -154,6 +157,11 @@ export async function GET(request: Request, context: { params: Promise<{ segment
         }
         if (segments[1] === 'effective-resolution' && !segments[2] && !url.search) {
           return Response.json(await getEffectiveResolution(actor));
+        }
+        if (segments[1] === 'resolution-quality-samples' && !segments[2]) {
+          const state = url.searchParams.get('state') ?? 'pending';
+          if (!['pending', 'reviewed', 'all'].includes(state)) return Response.json({ error: 'Invalid quality-sample state' }, { status: 400 });
+          return Response.json(await getResolutionQualitySamples(actor, state as 'pending' | 'reviewed' | 'all'));
         }
         if (segments[1] === 'runs') {
           const allowedKeys = ['state', 'sourceKey', 'connectorKey', 'createdFrom', 'createdTo', 'cursor', 'limit', 'sort'] as const;
@@ -299,6 +307,15 @@ export async function POST(request: Request, context: { params: Promise<{ segmen
       if (!body.success) return Response.json({ error: 'A public URL and audit reason are required' }, { status: 400 });
       const result = await submitExternalEvidenceRequest(actor, body.data);
       logOperationalEvent('admin_mutation_completed', { action: 'data_platform.external_evidence.request', requestId: result.requestId });
+      return Response.json(result);
+    }
+    if (segments[0] === 'data-platform' && segments[1] === 'resolution-quality-samples'
+      && segments[2] && segments[3] === 'review' && !segments[4]) {
+      const actor = await authorizeAdminRequest(request, 'data-platform:write');
+      const body = resolutionQualitySampleReviewInputSchema.safeParse(await request.json().catch(() => null));
+      if (!body.success) return Response.json({ error: 'Choose whether the sampled decision was correct' }, { status: 400 });
+      const result = await reviewResolutionQualitySample(actor, segments[2], body.data);
+      logOperationalEvent('admin_mutation_completed', { action: `data_platform.resolution_quality_sample.${body.data.outcome}`, requestId: result.requestId });
       return Response.json(result);
     }
     if (segments[0] === 'data-platform' && segments[1] === 'acquisition-policies'

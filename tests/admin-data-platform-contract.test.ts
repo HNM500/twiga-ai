@@ -29,6 +29,8 @@ import {
   resolutionEvaluationSetConfirmationResultSchema,
   resolutionEvaluationSetListSchema,
   resolutionLabelReviewInputSchema,
+  resolutionQualitySampleListSchema,
+  resolutionQualitySampleReviewInputSchema,
 } from '@/lib/admin/data-platform-contract';
 
 const validOverview = {
@@ -65,11 +67,17 @@ const validOverview = {
     settings: {
       version: 2, mode: 'active', canaryPercent: 100, exactIdentifierLinkEnabled: true,
       provisionalCreateEnabled: true, compositeLinkEnabled: false,
-      dormantAfterEnrichment: true, policyVersion: 'effective-identity-resolution.v1',
+      dormantAfterEnrichment: true, qualitySamplePercent: 5, policyVersion: 'effective-identity-resolution.v1',
       updatedAt: '2026-07-28T12:00:00.000Z',
     },
     stateCounts: { pending: 0, enriching: 0, linked: 0, provisional: 0, exception: 0, unresolved: 0 },
     work: { automation: 0, exceptions: 0 },
+    quality: {
+      windowDays: 30, admittedEvidence: 0, automaticDecisions: 0, automaticLinks: 0,
+      provisionalCreates: 0, humanExceptions: 0, reviewsPer1000: 0, sampledDecisions: 0,
+      reviewedSamples: 0, falseMerges: 0, missedMatches: 0, overrides: 0,
+      potentialDuplicateCreations: 0,
+    },
   },
   currentRun: null,
   attentionItems: [], readiness: [], recentActivity: [], recentRuns: [], sources: [], reviewBreakdown: [],
@@ -447,5 +455,24 @@ describe('Data Platform gateway contract', () => {
     expect(sourcePolicyOverrideInputSchema.safeParse({
       action: 'clear', hostname: 'example.co.tz', reason: 'Return to automatic recommendation',
     }).success).toBe(true);
+  });
+});
+
+describe('Identity resolution quality sample contract', () => {
+  test('accepts compact sampled decisions and bounded reviewer outcomes', () => {
+    expect(resolutionQualitySampleListSchema.safeParse({
+      contractVersion: 'identity-resolution-quality-samples.v1',
+      generatedAt: '2026-08-04T12:00:00.000Z',
+      samples: [{
+        publicId: `resolution_quality_sample_${'1'.repeat(32)}`,
+        decision: 'link_existing', targetPublicId: `org_${'2'.repeat(32)}`, targetName: 'Example Tanzania Limited',
+        confidence: 0.98, reasonCodes: ['single_stable_identifier_match'],
+        policyVersion: 'resolution-intelligence-v2.3.0', sampledAt: '2026-08-04T12:00:00.000Z',
+        incoming: { name: 'Example Tanzania Ltd', kind: 'legal_entity', source: 'example.co.tz', evidenceUrl: null },
+        review: null,
+      }],
+    }).success).toBe(true);
+    expect(resolutionQualitySampleReviewInputSchema.safeParse({ outcome: 'correct' }).success).toBe(true);
+    expect(resolutionQualitySampleReviewInputSchema.safeParse({ outcome: 'invented' }).success).toBe(false);
   });
 });
