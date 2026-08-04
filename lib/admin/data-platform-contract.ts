@@ -720,6 +720,8 @@ export const externalEvidenceSubmitResultSchema = z.object({
 const acquisitionToggleSchema = z.object({ enabled: z.boolean() }).strict();
 const acquisitionNumberPolicySchema = z.object({ enabled: z.boolean(), value: z.number().int().positive() }).strict();
 export const acquisitionSettingsValuesSchema = z.object({
+  collectionMode: z.enum(['standard', 'conservative', 'paused']),
+  sourceCheckMaxAgeDays: z.number().int().min(1).max(365),
   singlePageIntake: acquisitionToggleSchema,
   pageCapture: acquisitionToggleSchema,
   aiInterpretation: acquisitionToggleSchema,
@@ -853,6 +855,24 @@ const sourcePolicyOverrideSchema = z.object({
   createdAt: z.string(),
 });
 
+const effectiveAcquisitionDecisionSchema = z.object({
+  contractVersion: z.literal('effective-acquisition-policy.v1'),
+  collectionMode: z.enum(['standard', 'conservative', 'paused']),
+  purpose: z.enum(['single_page', 'recurring']),
+  outcome: z.enum(['admit_internal', 'hold', 'block']),
+  status: z.enum(['automatic', 'limited', 'licensed', 'blocked']),
+  sourceClass: sourceClassSchema.nullable(),
+  usageScopes: sourceUsageScopesSchema,
+  limits: z.object({
+    recurringAllowed: z.boolean(), maxPagesPerRun: z.number().int(), requestsPerMinute: z.number().int(),
+  }).strict(),
+  reasonCodes: z.array(z.string()),
+  decisionPublicId: z.string().nullable(),
+  observedAt: z.string().nullable(),
+  overridden: z.boolean(),
+  explicitBlockApplied: z.boolean(),
+}).strict();
+
 export const acquisitionPoliciesSchema = z.object({
   contractVersion: z.literal('admin-data-platform.v1'),
   settings: acquisitionSettingsRecordSchema,
@@ -904,6 +924,19 @@ export const acquisitionPoliciesSchema = z.object({
     })),
     overrideHistory: z.array(sourcePolicyOverrideSchema),
   }),
+  effectivePolicy: z.object({
+    contractVersion: z.literal('effective-acquisition-policy.v1'),
+    collectionMode: z.enum(['standard', 'conservative', 'paused']),
+    summary: z.object({
+      total: z.number().int().nonnegative(), automatic: z.number().int().nonnegative(),
+      limited: z.number().int().nonnegative(), needsReview: z.number().int().nonnegative(),
+      blocked: z.number().int().nonnegative(),
+    }),
+    sources: z.array(z.object({
+      hostname: z.string(), url: z.string().url(), decision: effectiveAcquisitionDecisionSchema, observedAt: z.string(),
+    })),
+    exceptionHistory: z.array(sourcePolicyOverrideSchema),
+  }),
   generatedAt: z.string(),
 });
 
@@ -919,7 +952,7 @@ export const acquisitionDomainPolicyResultSchema = z.object({
 
 export const sourcePolicyOverrideResultSchema = z.object({
   contractVersion: z.literal('admin-data-platform.v1'),
-  enforcement: z.enum(['observe_only', 'canary', 'active']),
+  collectionMode: z.enum(['standard', 'conservative', 'paused']),
   override: sourcePolicyOverrideSchema,
 });
 

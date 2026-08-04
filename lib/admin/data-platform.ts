@@ -343,7 +343,7 @@ export async function updateAcquisitionSettings(actor: AdminActor, rawInput: Acq
   const body = await coreAdminRequest<unknown>(
     actor,
     '/internal/v1/admin/data-platform/acquisition-policies/settings',
-    'data-platform:write',
+    'data-platform:policy-override',
     { method: 'POST', body: JSON.stringify(input) },
   );
   const parsed = acquisitionSettingsUpdateResultSchema.safeParse(body);
@@ -389,7 +389,7 @@ export async function upsertAcquisitionDomainPolicy(actor: AdminActor, rawInput:
   return { ok: true, requestId, result: parsed.data };
 }
 
-export async function recordSourcePolicyShadowOverride(actor: AdminActor, rawInput: SourcePolicyOverrideInput) {
+export async function recordSourcePolicyOverride(actor: AdminActor, rawInput: SourcePolicyOverrideInput) {
   const input = sourcePolicyOverrideInputSchema.parse(rawInput);
   const requestId = crypto.randomUUID();
   await maindb.insert(adminAuditLog).values({
@@ -397,11 +397,11 @@ export async function recordSourcePolicyShadowOverride(actor: AdminActor, rawInp
     action: `data_platform.source_policy_override.${input.action}.requested`, targetType: 'source_policy_override',
     targetId: input.hostname, reason: input.reason, requestId,
     beforeState: null, afterState: null,
-    metadata: { service: 'twiga-core', hostname: input.hostname, enforcement: 'observe_only' },
+    metadata: { service: 'twiga-core', hostname: input.hostname },
   });
   const body = await coreAdminRequest<unknown>(
     actor,
-    '/internal/v1/admin/data-platform/acquisition-policies/shadow-overrides',
+    '/internal/v1/admin/data-platform/acquisition-policies/overrides',
     'data-platform:policy-override',
     { method: 'POST', body: JSON.stringify(input) },
   );
@@ -412,10 +412,13 @@ export async function recordSourcePolicyShadowOverride(actor: AdminActor, rawInp
     action: `data_platform.source_policy_override.${input.action}`, targetType: 'source_policy_override',
     targetId: parsed.data.override.publicId, reason: input.reason, requestId,
     beforeState: null, afterState: parsed.data,
-    metadata: { service: 'twiga-core', hostname: input.hostname, enforcement: 'observe_only' },
+    metadata: { service: 'twiga-core', hostname: input.hostname },
   });
   return { ok: true, requestId, result: parsed.data };
 }
+
+/** @deprecated Use recordSourcePolicyOverride. */
+export const recordSourcePolicyShadowOverride = recordSourcePolicyOverride;
 
 export async function getDataPlatformEvidenceGroup(actor: AdminActor, publicId: string) {
   if (!/^evidence_group_[0-9a-f]{32}$/.test(publicId)) throw new AdminAccessError(400, 'Invalid evidence group identifier');

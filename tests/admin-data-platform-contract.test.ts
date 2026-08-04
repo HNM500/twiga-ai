@@ -374,6 +374,8 @@ describe('Data Platform gateway contract', () => {
 
   test('validates versioned acquisition settings and domain controls', () => {
     const values = {
+      collectionMode: 'conservative',
+      sourceCheckMaxAgeDays: 30,
       singlePageIntake: { enabled: true }, pageCapture: { enabled: true }, aiInterpretation: { enabled: true },
       queueDepth: { enabled: true, value: 500 }, maxAttempts: { enabled: true, value: 3 },
       queueLatencyAlertMinutes: { enabled: true, value: 10 },
@@ -417,6 +419,22 @@ describe('Data Platform gateway contract', () => {
           override: null,
         }],
         overrideHistory: [],
+      },
+      effectivePolicy: {
+        contractVersion: 'effective-acquisition-policy.v1', collectionMode: 'conservative',
+        summary: { total: 1, automatic: 1, limited: 0, needsReview: 0, blocked: 0 },
+        sources: [{
+          hostname: 'example.co.tz', url: 'https://example.co.tz/about', observedAt: '2026-08-01T12:00:00.000Z',
+          decision: {
+            contractVersion: 'effective-acquisition-policy.v1', collectionMode: 'conservative', purpose: 'single_page',
+            outcome: 'admit_internal', status: 'automatic', sourceClass: 'standard_public',
+            usageScopes: { collect: true, internalEnrichment: true, publicDisplay: false, customerExport: false },
+            limits: { recurringAllowed: false, maxPagesPerRun: 50, requestsPerMinute: 10 },
+            reasonCodes: ['class_standard_public'], decisionPublicId: `preflight_${'1'.repeat(32)}`,
+            observedAt: '2026-08-01T12:00:00.000Z', overridden: false, explicitBlockApplied: false,
+          },
+        }],
+        exceptionHistory: [],
       },
       generatedAt: '2026-08-01T12:00:00.000Z',
     }).success).toBe(true);

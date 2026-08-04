@@ -42,7 +42,7 @@ import {
   getAcquisitionPolicies,
   updateAcquisitionSettings,
   upsertAcquisitionDomainPolicy,
-  recordSourcePolicyShadowOverride,
+  recordSourcePolicyOverride,
   updateDataPlatformOrganization,
   getEffectiveResolution,
   updateEffectiveResolution,
@@ -303,7 +303,7 @@ export async function POST(request: Request, context: { params: Promise<{ segmen
     }
     if (segments[0] === 'data-platform' && segments[1] === 'acquisition-policies'
       && segments[2] === 'settings' && !segments[3]) {
-      const actor = await authorizeAdminRequest(request, 'data-platform:write');
+      const actor = await authorizeAdminRequest(request, 'data-platform:policy-override');
       const body = acquisitionSettingsUpdateSchema.safeParse(await request.json().catch(() => null));
       if (!body.success) return Response.json({ error: 'Valid acquisition settings and an audit reason are required' }, { status: 400 });
       const result = await updateAcquisitionSettings(actor, body.data);
@@ -320,11 +320,11 @@ export async function POST(request: Request, context: { params: Promise<{ segmen
       return Response.json(result);
     }
     if (segments[0] === 'data-platform' && segments[1] === 'acquisition-policies'
-      && segments[2] === 'shadow-overrides' && !segments[3]) {
+      && (segments[2] === 'overrides' || segments[2] === 'shadow-overrides') && !segments[3]) {
       const actor = await authorizeAdminRequest(request, 'data-platform:policy-override');
       const body = sourcePolicyOverrideInputSchema.safeParse(await request.json().catch(() => null));
       if (!body.success) return Response.json({ error: 'Choose a valid source policy and give an audit reason' }, { status: 400 });
-      const result = await recordSourcePolicyShadowOverride(actor, body.data);
+      const result = await recordSourcePolicyOverride(actor, body.data);
       logOperationalEvent('admin_mutation_completed', { action: `data_platform.source_policy_override.${body.data.action}`, requestId: result.requestId });
       return Response.json(result);
     }
