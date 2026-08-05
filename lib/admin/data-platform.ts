@@ -36,6 +36,10 @@ import {
   externalEvidenceListSchema,
   externalEvidenceRequestInputSchema,
   externalEvidenceSubmitResultSchema,
+  intelligenceIntakeInputSchema,
+  intelligenceIntakeListQuerySchema,
+  intelligenceIntakeListSchema,
+  intelligenceIntakeSubmitResultSchema,
   effectiveResolutionSchema,
   effectiveResolutionSettingsUpdateSchema,
   effectiveResolutionSettingsUpdateResultSchema,
@@ -55,6 +59,7 @@ import {
   type ResolutionQualitySampleReviewInput,
   type ResolutionAcceptanceCommand,
   type ExternalEvidenceRequestInput,
+  type IntelligenceIntakeInput,
   type AcquisitionDomainPolicyInput,
   type AcquisitionSettingsUpdateInput,
   type SourcePolicyOverrideInput,
@@ -396,6 +401,51 @@ export async function submitExternalEvidenceRequest(actor: AdminActor, rawInput:
     requestId,
     beforeState: null,
     afterState: { state: parsed.data.request.state, url: parsed.data.request.url },
+    metadata: { service: 'twiga-core' },
+  });
+  return { ok: true, requestId, result: parsed.data };
+}
+
+export async function getIntelligenceIntakeRequests(actor: AdminActor, rawInput: Record<string, string | undefined>) {
+  const input = intelligenceIntakeListQuerySchema.parse(rawInput);
+  const url = coreUrl('/internal/v1/admin/data-platform/intelligence-intake');
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined) url.searchParams.set(key, String(value));
+  }
+  const body = await coreAdminRequest<unknown>(actor, `${url.pathname}${url.search}`, 'data-platform:read');
+  const parsed = intelligenceIntakeListSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible intelligence-intake contract');
+  return parsed.data;
+}
+
+export async function submitIntelligenceIntake(actor: AdminActor, rawInput: IntelligenceIntakeInput) {
+  const input = intelligenceIntakeInputSchema.parse(rawInput);
+  const requestId = crypto.randomUUID();
+  const reason = 'Administrator added organization or person intelligence';
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: 'data_platform.intelligence_intake.requested', targetType: 'intelligence_intake_request',
+    targetId: input.idempotencyKey, reason, requestId, beforeState: null, afterState: null,
+    metadata: {
+      service: 'twiga-core', hasOrganization: Boolean(input.organizationName), hasPerson: Boolean(input.personName),
+      associationRequested: Boolean(input.organizationName && input.personName), attachmentCount: input.attachments.length,
+    },
+  });
+  const body = await coreAdminRequest<unknown>(
+    actor, '/internal/v1/admin/data-platform/intelligence-intake', 'data-platform:write',
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+  const parsed = intelligenceIntakeSubmitResultSchema.safeParse(body);
+  if (!parsed.success) throw new AdminAccessError(502, 'Twiga Data Platform returned an incompatible intelligence-intake result');
+  await maindb.insert(adminAuditLog).values({
+    actorUserId: actor.userId, actorEmail: actor.email, actorRole: actor.primaryRole,
+    action: parsed.data.created ? 'data_platform.intelligence_intake.queued' : 'data_platform.intelligence_intake.replayed',
+    targetType: 'intelligence_intake_request', targetId: parsed.data.request.publicId,
+    reason, requestId, beforeState: null,
+    afterState: {
+      state: parsed.data.request.state, hasOrganization: Boolean(parsed.data.request.organizationName),
+      hasPerson: Boolean(parsed.data.request.personName), attachmentCount: parsed.data.request.attachments.length,
+    },
     metadata: { service: 'twiga-core' },
   });
   return { ok: true, requestId, result: parsed.data };

@@ -24,6 +24,9 @@ import {
   externalEvidenceListSchema,
   externalEvidenceRequestInputSchema,
   externalEvidenceSubmitResultSchema,
+  intelligenceIntakeInputSchema,
+  intelligenceIntakeListSchema,
+  intelligenceIntakeSubmitResultSchema,
   resolutionEvaluationSetDetailSchema,
   resolutionEvaluationSetConfirmationInputSchema,
   resolutionEvaluationSetConfirmationResultSchema,
@@ -380,6 +383,29 @@ describe('Data Platform gateway contract', () => {
     expect(externalEvidenceListQuerySchema.safeParse({ state: 'queued', limit: '100' }).success).toBe(true);
     expect(externalEvidenceListQuerySchema.safeParse({ state: 'invented' }).success).toBe(false);
     expect(externalEvidenceListQuerySchema.safeParse({ secret: 'must-not-pass' }).success).toBe(false);
+  });
+
+  test('accepts one organization and person intelligence submission with a private association', () => {
+    const request = {
+      publicId: `intelligence_intake_${'1'.repeat(32)}`,
+      organizationName: 'NMB Bank PLC', personName: 'Ruth Zaipuna', details: 'Chief Executive Officer',
+      attachments: [{ originalName: 'note.txt', contentType: 'text/plain', byteLength: 12, sha256: 'a'.repeat(64) }],
+      state: 'queued', possibleMatches: { organizations: [], people: [] }, searchResults: [], queuedPageCount: 0,
+      providerUsage: {}, error: null, submissionPublicId: null, runPublicId: null,
+      requestedAt: '2026-08-05T12:00:00.000Z', completedAt: null, updatedAt: '2026-08-05T12:00:00.000Z',
+    };
+    expect(intelligenceIntakeInputSchema.safeParse({
+      organizationName: 'NMB Bank PLC', personName: 'Ruth Zaipuna', details: 'Chief Executive Officer',
+      attachments: [], idempotencyKey: 'intake-12345',
+    }).success).toBe(true);
+    expect(intelligenceIntakeSubmitResultSchema.safeParse({
+      contractVersion: 'intelligence-intake.v1', request, created: true,
+    }).success).toBe(true);
+    expect(intelligenceIntakeListSchema.safeParse({
+      contractVersion: 'intelligence-intake.v1', requests: [request], count: 1,
+      generatedAt: '2026-08-05T12:00:00.000Z',
+    }).success).toBe(true);
+    expect(intelligenceIntakeInputSchema.safeParse({ attachments: [], idempotencyKey: 'intake-empty' }).success).toBe(false);
   });
 
   test('validates versioned acquisition settings and domain controls', () => {
