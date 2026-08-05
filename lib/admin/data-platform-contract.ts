@@ -822,6 +822,62 @@ export const externalEvidenceSubmitResultSchema = z.object({
   created: z.boolean(),
 });
 
+const intelligenceAttachmentInputSchema = z.object({
+  name: z.string().trim().min(1).max(240),
+  contentType: z.string().trim().min(3).max(160),
+  base64: z.string().min(4).max(12_000_000),
+}).strict();
+
+export const intelligenceIntakeInputSchema = z.object({
+  organizationName: z.string().trim().min(2).max(240).optional(),
+  personName: z.string().trim().min(2).max(240).optional(),
+  details: z.string().trim().min(2).max(10_000).optional(),
+  attachments: z.array(intelligenceAttachmentInputSchema).max(5).default([]),
+  idempotencyKey: z.string().trim().min(8).max(256),
+}).strict().superRefine((value, context) => {
+  if (!value.organizationName && !value.personName && !value.details && value.attachments.length === 0) {
+    context.addIssue({ code: 'custom', message: 'Add a name, some information or a file' });
+  }
+});
+
+const intelligenceIntakeStateSchema = z.enum(['queued', 'running', 'research_queued', 'failed', 'cancelled']);
+const intelligenceMatchSchema = z.object({
+  publicId: z.string().regex(/^(?:org|person)_[0-9a-f]{32}$/),
+  name: z.string(), lifecycleState: z.string(),
+});
+const intelligenceIntakeRequestSchema = z.object({
+  publicId: z.string().regex(/^intelligence_intake_[0-9a-f]{32}$/),
+  organizationName: z.string().nullable(), personName: z.string().nullable(), details: z.string().nullable(),
+  attachments: z.array(z.object({
+    originalName: z.string(), contentType: z.string(), byteLength: z.number().int().nonnegative(),
+    sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  })),
+  state: intelligenceIntakeStateSchema,
+  possibleMatches: z.object({
+    organizations: z.array(intelligenceMatchSchema), people: z.array(intelligenceMatchSchema),
+  }),
+  searchResults: z.array(z.object({ title: z.string(), description: z.string(), url: z.string().url() })),
+  queuedPageCount: z.number().int().nonnegative(), providerUsage: z.record(z.string(), z.unknown()),
+  error: z.object({ code: z.string(), detail: z.record(z.string(), z.unknown()) }).nullable(),
+  submissionPublicId: z.string().regex(/^submission_[0-9a-f]{32}$/).nullable(),
+  runPublicId: z.string().regex(/^run_[0-9a-f]{32}$/).nullable(),
+  requestedAt: z.string(), completedAt: z.string().nullable(), updatedAt: z.string(),
+});
+
+export const intelligenceIntakeListQuerySchema = z.object({
+  state: intelligenceIntakeStateSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+}).strict();
+
+export const intelligenceIntakeListSchema = z.object({
+  contractVersion: z.literal('intelligence-intake.v1'),
+  requests: z.array(intelligenceIntakeRequestSchema), count: z.number().int().nonnegative(), generatedAt: z.string(),
+});
+
+export const intelligenceIntakeSubmitResultSchema = z.object({
+  contractVersion: z.literal('intelligence-intake.v1'), request: intelligenceIntakeRequestSchema, created: z.boolean(),
+});
+
 const acquisitionToggleSchema = z.object({ enabled: z.boolean() }).strict();
 const acquisitionNumberPolicySchema = z.object({ enabled: z.boolean(), value: z.number().int().positive() }).strict();
 export const acquisitionSettingsValuesSchema = z.object({
@@ -1078,6 +1134,7 @@ export type ResolutionLabelReviewInput = z.infer<typeof resolutionLabelReviewInp
 export type ResolutionEvaluationSetConfirmationInput = z.infer<typeof resolutionEvaluationSetConfirmationInputSchema>;
 export type ExternalEvidenceList = z.infer<typeof externalEvidenceListSchema>;
 export type ExternalEvidenceRequestInput = z.infer<typeof externalEvidenceRequestInputSchema>;
+export type IntelligenceIntakeInput = z.infer<typeof intelligenceIntakeInputSchema>;
 export type AcquisitionPolicies = z.infer<typeof acquisitionPoliciesSchema>;
 export type AcquisitionSettingsUpdateInput = z.infer<typeof acquisitionSettingsUpdateSchema>;
 export type AcquisitionDomainPolicyInput = z.infer<typeof acquisitionDomainPolicyInputSchema>;

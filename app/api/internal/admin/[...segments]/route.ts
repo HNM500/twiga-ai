@@ -39,6 +39,8 @@ import {
   resolveDataPlatformEntityReview,
   getExternalEvidenceRequests,
   submitExternalEvidenceRequest,
+  getIntelligenceIntakeRequests,
+  submitIntelligenceIntake,
   getAcquisitionPolicies,
   updateAcquisitionSettings,
   upsertAcquisitionDomainPolicy,
@@ -56,6 +58,7 @@ import {
   acquisitionSettingsUpdateSchema,
   sourcePolicyOverrideInputSchema,
   externalEvidenceRequestInputSchema,
+  intelligenceIntakeInputSchema,
   resolutionEvaluationSetConfirmationInputSchema,
   resolutionLabelReviewInputSchema,
   organizationDossierUpdateSchema,
@@ -216,6 +219,15 @@ export async function GET(request: Request, context: { params: Promise<{ segment
             allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
           )));
         }
+        if (segments[1] === 'intelligence-intake') {
+          if (segments[2]) return Response.json({ error: 'Invalid intelligence-intake request' }, { status: 400 });
+          const allowedKeys = ['state', 'limit'] as const;
+          const unknownKeys = [...url.searchParams.keys()].filter((key) => !allowedKeys.includes(key as typeof allowedKeys[number]));
+          if (unknownKeys.length) return Response.json({ error: 'Unknown intelligence-intake filter' }, { status: 400 });
+          return Response.json(await getIntelligenceIntakeRequests(actor, Object.fromEntries(
+            allowedKeys.map((key) => [key, url.searchParams.get(key) ?? undefined]),
+          )));
+        }
         if (segments[1] === 'acquisition-policies') {
           if (segments[2] || url.search) return Response.json({ error: 'Invalid acquisition-policy request' }, { status: 400 });
           return Response.json(await getAcquisitionPolicies(actor));
@@ -313,6 +325,14 @@ export async function POST(request: Request, context: { params: Promise<{ segmen
       if (!body.success) return Response.json({ error: 'A public URL and audit reason are required' }, { status: 400 });
       const result = await submitExternalEvidenceRequest(actor, body.data);
       logOperationalEvent('admin_mutation_completed', { action: 'data_platform.external_evidence.request', requestId: result.requestId });
+      return Response.json(result);
+    }
+    if (segments[0] === 'data-platform' && segments[1] === 'intelligence-intake' && !segments[2]) {
+      const actor = await authorizeAdminRequest(request, 'data-platform:write');
+      const body = intelligenceIntakeInputSchema.safeParse(await request.json().catch(() => null));
+      if (!body.success) return Response.json({ error: 'Add a name, some information or a supported file' }, { status: 400 });
+      const result = await submitIntelligenceIntake(actor, body.data);
+      logOperationalEvent('admin_mutation_completed', { action: 'data_platform.intelligence_intake.request', requestId: result.requestId });
       return Response.json(result);
     }
     if (segments[0] === 'data-platform' && segments[1] === 'resolution-quality-samples'
